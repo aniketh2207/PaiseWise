@@ -2,4 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+*.db
+backend/config.py
+
 
