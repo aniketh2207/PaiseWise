@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from database.db import init_db, get_db
 from database.seed import seed_categories
 from tools.llm_client import parse_slack_expense
+
 app = FastAPI(title="PaiseWise")
 
 @app.on_event("startup")
@@ -17,5 +18,5 @@ def health_check():
 def test_parser(message):
     result = parse_slack_expense(message)
     return {
-        "result":result
+        "result": result
     }
