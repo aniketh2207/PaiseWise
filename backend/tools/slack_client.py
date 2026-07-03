@@ -3,8 +3,14 @@ from sqlalchemy import text
 from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler 
-from backend.tools.parsing_agent import parse_agent
-from backend.tools.llm_client import generate_summary,generate_sql,generate_answer
+try:
+    from backend.agents.parsing_agent import parse_agent
+    from backend.tools.llm_client import generate_summary
+    from backend.agents.query_agent import generate_sql, generate_answer
+except ModuleNotFoundError:
+    from agents.parsing_agent import parse_agent
+    from tools.llm_client import generate_summary
+    from agents.query_agent import generate_sql, generate_answer
 from backend.tools.db_tools import get_monthly_aggregates
 from backend.config import settings
 from backend.database.db import SessionLocal
