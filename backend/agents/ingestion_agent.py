@@ -1,6 +1,11 @@
-from database.db import SessionLocal
-from database.models import BankTransaction
-from tools.upi_classifier import classify_upi
+try:
+    from backend.database.db import SessionLocal
+    from backend.database.models import BankTransaction
+    from backend.tools.upi_classifier import classify_upi
+except ModuleNotFoundError:
+    from database.db import SessionLocal
+    from database.models import BankTransaction
+    from tools.upi_classifier import classify_upi
 
 def ingestion_pipeline(transactions: list[dict], file_name: str):
     saved, skipped = 0, 0
@@ -45,6 +50,7 @@ def is_already_ingested(upi_transaction_id: str, db) -> bool:
 def save_transaction(is_business: bool, category: str, subcategory: str, txn: dict, db):
     new_txn = BankTransaction(
         date=txn['date'],
+        time=txn.get('time'),
         amount=txn['amount'],
         type=txn['type'],
         upi_id=txn.get('upi_transaction_id'), 
@@ -57,7 +63,7 @@ def save_transaction(is_business: bool, category: str, subcategory: str, txn: di
         is_business_upi=is_business,
         category=category,
         subcategory=subcategory,
-        reconcile_status=None,       # Will be updated in Phase 3
+        reconcile_status="auto_categorized" if is_business else None,       # Will be updated in Phase 3
         reason=None,                 # PDF transactions don't have reasons yet
         slack_log_id=None,           # Not linked to a slack log yet
         needs_annotation=not is_business # If it's not a known business, it needs review

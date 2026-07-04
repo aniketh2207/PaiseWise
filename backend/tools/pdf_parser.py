@@ -48,14 +48,18 @@ def extract_gpay_transactions(file_bytes: bytes) -> list[dict]:
 
                     # Next line always: "HH:MMAM/PM UPITransactionID:XXXXXXXXXX"
                     upi_txn_id = None
+                    time_str = "12:00AM"  # Added default fallback time
+                    
                     if i + 1 < len(lines):
                         next_line = lines[i + 1].strip()
                         time_match = re.match(
-                            r"^\d{2}:\d{2}[AP]M\s+UPITransactionID:(\d+)$",
+                            # ADDED: parentheses around the time to create a capture group
+                            r"^(\d{2}:\d{2}[AP]M)\s+UPITransactionID:(\d+)$",
                             next_line,
                         )
                         if time_match:
-                            upi_txn_id = time_match.group(1)
+                            time_str = time_match.group(1)       # Extracted time
+                            upi_txn_id = time_match.group(2)     # Shifted ID to group 2
                             i += 1  # skip the time/ID line
 
                     # Direction → type, and extract clean name
@@ -69,23 +73,23 @@ def extract_gpay_transactions(file_bytes: bytes) -> list[dict]:
                     # Parse amount (handle commas + decimals: ₹2,350 / ₹19.35)
                     amount = float(amount_str.replace("₹", "").replace(",", ""))
 
-                    # Parse date ("03May,2026" → date object)
                     try:
-                        txn_date = datetime.strptime(date_str, "%d%b,%Y").date()
+                        txn_datetime = datetime.strptime(f"{date_str} {time_str}", "%d%b,%Y %I:%M%p")
                     except ValueError:
                         i += 1
                         continue
 
                     transactions.append({
-                        "date":               txn_date,
+                        "date":               txn_datetime.date(),
+                        "time":               txn_datetime.time(),
                         "amount":             amount,
                         "type":               txn_type,
                         "upi_name":           raw_name,
                         "upi_id":             None,  # GPay PDF never includes UPI handles
                         "upi_transaction_id": upi_txn_id,
                         "raw_description":    f"{'Paid to' if txn_type == 'debit' else 'Received from'} {raw_name}",
-                        "month":              txn_date.month,
-                        "year":               txn_date.year,
+                        "month":              txn_datetime.month,
+                        "year":               txn_datetime.year,
                     })
 
                 i += 1
@@ -96,4 +100,3 @@ def extract_gpay_transactions(file_bytes: bytes) -> list[dict]:
 def get_file_hash(file_bytes: bytes) -> str:
     """MD5 hash of file bytes — used to detect duplicate uploads."""
     return hashlib.md5(file_bytes).hexdigest()
-

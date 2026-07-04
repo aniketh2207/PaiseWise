@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, UniqueConstraint, Time
 from sqlalchemy.sql import func
 
 try:
@@ -27,6 +27,7 @@ class BankTransaction(Base):
     __tablename__ = "bank_transactions"
     id                = Column(Integer, primary_key=True, autoincrement=True)
     date              = Column(Date, nullable=False)
+    time              = Column(Time, nullable=True)
     amount            = Column(Float, nullable=False)
     type              = Column(String, nullable=False)        # 'debit' | 'credit'
     upi_id            = Column(String)
@@ -39,6 +40,7 @@ class BankTransaction(Base):
     reason            = Column(String)
     slack_log_id      = Column(Integer)
     needs_annotation  = Column(Boolean, default=False)
+    notes             = Column(Text)
     month             = Column(Integer, nullable=False)
     year              = Column(Integer, nullable=False)
     created_at        = Column(DateTime, server_default=func.now())
