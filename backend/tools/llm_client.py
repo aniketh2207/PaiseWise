@@ -8,8 +8,30 @@ import io
 
 try:
     from backend.config import settings
+    from backend.database.db import SessionLocal
+    from backend.database.models import Category
 except ModuleNotFoundError:
     from config import settings
+    from database.db import SessionLocal
+    from database.models import Category
+
+def get_valid_categories_str() -> str:
+    db = SessionLocal()
+    try:
+        categories = db.query(Category).all()
+        # Group by parent (category) to get child names (subcategories)
+        grouped = {}
+        for cat in categories:
+            parent = cat.parent or "Other"
+            grouped.setdefault(parent, []).append(cat.name)
+        
+        # Format as string lines: "- Parent: Child1, Child2, ..."
+        lines = []
+        for parent, subcategories in grouped.items():
+            lines.append(f"- {parent}: {', '.join(subcategories)}")
+        return "\n".join(lines)
+    finally:
+        db.close()
 
 class ExpenseLog(BaseModel):
     amount:float = Field(description="The transaction amount. Always positive.")
@@ -44,15 +66,7 @@ Parse their casual Slack message into a structured expense log.
 
 
 Valid categories and subcategories:
-- Food: Delivery, Restaurant, Grocery, Canteen
-- Travel: Auto/Cab, Train, Flight, Fuel, Bus
-- Shopping: Clothes, Electronics, Stationery, General
-- Utilities: Phone, Internet, Electricity
-- Entertainment: Movies, OTT, Games, Events
-- Education: Books, Courses, Fees
-- Health: Medicine, Doctor
-- Transfer: Sent to Friend, Received, Split
-- Other: Miscellaneous
+{valid_categories}
 
 Rules:
 - Amount is always positive regardless of direction.
@@ -74,10 +88,14 @@ parsing_chain = prompt_template|expense_parser
 def parse_slack_expense(message: str) -> ExpenseLog:
     """Parse a slack message into an expense log"""
     try:
-        result = parsing_chain.invoke({"slack_message": message})
+        categories_str = get_valid_categories_str()
+        result = parsing_chain.invoke({
+            "slack_message": message,
+            "valid_categories": categories_str
+        })
         return result
     except Exception as e:
-        print(f"Error while parsing the message{e}")
+        print(f"Error while parsing the message: {e}")
         return None
 
 def generate_summary(aggregates: dict) -> str:
@@ -113,7 +131,7 @@ if __name__ == "__main__":
     test_msg = "80 canteen lunch vada pav"
     parsed_expense = parse_slack_expense(test_msg)
     if parsed_expense:
-        print(f"Parsed Amount: ₹{parsed_expense.amount}")
+        print(f"Parsed Amount: Rs. {parsed_expense.amount}")
         print(f"Category: {parsed_expense.category}/{parsed_expense.subcategory}")
         print(f"Reason: {parsed_expense.reason}")
         print(f"Confidence: {parsed_expense.confidence}")

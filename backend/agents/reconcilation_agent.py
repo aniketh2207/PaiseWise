@@ -81,8 +81,7 @@ def run_reconciliation():
                         user_confirmed      = False,
                         last_seen           = bank_log.date
                     ))
-
-        db.commit()
+            db.commit()
         rebuild_monthly_summary(db)   
         
         return {

@@ -4,13 +4,21 @@ from database.seed import seed_categories
 from tools.llm_client import parse_slack_expense
 from tools.pdf_parser import extract_gpay_transactions,get_file_hash
 from typing import Annotated
-from database.models import UploadLog
+from database.models import UploadLog,BankTransaction
 from database.db import SessionLocal
+from agents.reconcilation_agent import run_reconciliation
 from agents.ingestion_agent import ingestion_pipeline
 import io
 
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="PaiseWise")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # tighten this in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def on_startup():
@@ -85,5 +93,22 @@ async def upload_bank_statement(file: UploadFile = File(...),background_tasks: B
         } 
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
 
+
+@app.post("/api/reconcile")
+def trigger_reconciliation():
+    """
+    Manually triggers the pure Python reconciliation pipeline.
+    Uses POST because it modifies database state (updates statuses, saves patterns).
+    """
+    result = run_reconciliation()
+    return result
+
+@app.get("/api/get_annotation_queue")
+def get_transactions():
+    db = SessionLocal()
+    transactions = db.query(BankTransaction).filter(BankTransaction.needs_annotation==True).all()
+    return { "data": transactions,'length':len(transactions)}

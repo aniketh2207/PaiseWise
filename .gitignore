@@ -5,4 +5,20 @@ __pycache__/
 *.db
 backend/config.py
 
+# Dependency directories
+node_modules/
+
+# Expo directories
+.expo/
+dist/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tool-specific configurations
+.claude/
+
 
