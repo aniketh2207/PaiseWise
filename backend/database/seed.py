@@ -41,13 +41,16 @@ CATEGORIES = [
 def seed_categories():
     db = SessionLocal()
     try:
-        existing = db.query(Category).count()
-        if existing > 0:
-            print("Categories already seeded, skipping.")
-            return
+        inserted = 0
         for name, parent, color in CATEGORIES:
-            db.add(Category(name=name, parent=parent, color_hex=color))
-        db.commit()
-        print(f"Seeded {len(CATEGORIES)} categories.")
+            exists = db.query(Category).filter(Category.name == name).first()
+            if not exists:
+                db.add(Category(name=name, parent=parent, color_hex=color))
+                inserted += 1
+        if inserted > 0:
+            db.commit()
+            print(f"Seeded {inserted} new categories.")
+        else:
+            print("All categories already exist in database.")
     finally:
         db.close()

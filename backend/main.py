@@ -4,11 +4,14 @@ from database.seed import seed_categories
 from tools.llm_client import parse_slack_expense
 from tools.pdf_parser import extract_gpay_transactions,get_file_hash
 from typing import Annotated
-from database.models import UploadLog,BankTransaction
+from database.models import *
 from database.db import SessionLocal
-from agents.reconcilation_agent import run_reconciliation
+from agents.reconcilation_agent import full_pipeline, run_reconciliation
 from agents.ingestion_agent import ingestion_pipeline
+from pydantic import BaseModel
+from tools.llm_client import generate_summary
 import io
+import json
 
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="PaiseWise")
@@ -84,7 +87,7 @@ async def upload_bank_statement(file: UploadFile = File(...),background_tasks: B
         
             
         # 5. Return the payload
-        background_tasks.add_task(ingestion_pipeline, raw_transactions, file.filename)
+        background_tasks.add_task(full_pipeline, raw_transactions, file.filename)
         return {
             "status": "success",
             "filename": file.filename,
@@ -112,3 +115,132 @@ def get_transactions():
     db = SessionLocal()
     transactions = db.query(BankTransaction).filter(BankTransaction.needs_annotation==True).all()
     return { "data": transactions,'length':len(transactions)}
+
+
+class AnnotationUpdate(BaseModel):
+    category: str
+    subcategory: str
+    reason: str
+    remember_upi: bool = False
+
+@app.patch("/api/transactions/{txn_id}/annotate")
+def annotate_transaction(txn_id: int, payload: AnnotationUpdate):
+    db = SessionLocal()
+    try:
+        txn = db.query(BankTransaction).filter(BankTransaction.id == txn_id).first()
+        if not txn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        txn.category         = payload.category
+        txn.subcategory       = payload.subcategory
+        txn.reason            = payload.reason
+        txn.reconcile_status  = "user_annotated"
+        txn.needs_annotation  = False
+
+        if payload.remember_upi:
+            existing = db.query(UpiPattern).filter(
+                UpiPattern.upi_id == txn.upi_name
+            ).first()
+            if existing:
+                existing.learned_category    = payload.category
+                existing.learned_subcategory = payload.subcategory
+                existing.user_confirmed      = True
+            else:
+                db.add(UpiPattern(
+                    upi_id              = txn.upi_name,
+                    learned_name        = txn.upi_name,
+                    learned_category    = payload.category,
+                    learned_subcategory = payload.subcategory,
+                    occurrence_count    = 1,
+                    user_confirmed      = True,
+                    last_seen           = txn.date,
+                ))
+
+        db.commit()
+        return {"message": "Annotation saved"}
+    except Exception as e:
+        db.rollback()
+        print("Error", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary(month: int = None, year: int = None):
+    db = SessionLocal()
+    try:
+        if not month or not year:
+            latest = db.query(MonthlySummary).order_by(
+                MonthlySummary.year.desc(),
+                MonthlySummary.month.desc()
+            ).first()
+            if latest:
+                month = latest.month
+                year = latest.year
+            else:
+                latest_txn = db.query(BankTransaction).order_by(
+                    BankTransaction.year.desc(),
+                    BankTransaction.month.desc()
+                ).first()
+                if latest_txn:
+                    month = latest_txn.month
+                    year = latest_txn.year
+                else:
+                    from datetime import datetime
+                    now = datetime.now()
+                    month = now.month
+                    year = now.year
+
+        db_summary = db.query(MonthlySummary).filter(
+            MonthlySummary.month == month,
+            MonthlySummary.year == year
+        ).first()
+        if not db_summary:
+            return {"exists": False, "month": month, "year": year}
+
+        pending = db.query(BankTransaction).filter(
+            BankTransaction.needs_annotation == True,
+            BankTransaction.month == month,
+            BankTransaction.year == year
+        ).count()
+
+        txns_details = db.query(BankTransaction).filter(
+            BankTransaction.month == month,
+            BankTransaction.year == year,
+            BankTransaction.type == 'debit'
+        ).all()
+        
+        txn_lines = []
+        for t in txns_details:
+            desc = t.reason or t.raw_description or "Unknown spend"
+            txn_lines.append(f"- {desc}: ₹{t.amount:.0f} (Category: {t.category or 'Other'}, Subcategory: {t.subcategory or 'General'})")
+
+        by_category_data = json.loads(db_summary.by_category or "{}")
+
+        # Map to the exact structure expected by generate_summary in llm_client.py
+        aggregates_payload = {
+            "month": month,
+            "year": year,
+            "total_spent": db_summary.total_debits or 0.0,
+            "transaction_count": db_summary.bank_txn_count or 0,
+            "by_category": by_category_data,
+            "top_merchant": db_summary.top_merchant or "N/A",
+            "transaction_list": "\n".join(txn_lines)
+        }
+
+        llm_summary = generate_summary(aggregates_payload)
+
+        return {
+            "exists": True,
+            "total_debits": db_summary.total_debits or 0.0,
+            "total_credits": db_summary.total_credits or 0.0,
+            "by_category": by_category_data,
+            "top_merchant": db_summary.top_merchant,
+            "match_rate": db_summary.match_rate or 0.0,
+            "pending_annotations": pending,
+            "llm_summary": llm_summary
+        }
+
+    finally:
+        db.close()

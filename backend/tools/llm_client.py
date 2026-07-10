@@ -109,18 +109,26 @@ def generate_summary(aggregates: dict) -> str:
     )
 
     prompt = f"""
-        You are summarizing a college student's monthly expenses in India.
-        Write a short, friendly 3-4 line summary based on this data.
-        Mention total spent, biggest category, and one useful observation.
-        Be conversational, not robotic. Use ₹ symbol.
+        You are a concerned, strict yet intelligent and reasonable Indian parent reviewing your college student child's monthly expense report.
+        Write a short, parental 3-4 line response balancing strictness with practical, wise advice based on this data.
+        
+        Rules:
+        - Maintain your parental authority: be disappointed with wasteful/excessive spends (like eating out at restaurants, buying desserts repeatedly, or streaming subscriptions).
+        - Be reasonable and intelligent about necessary expenses (like cycle repairs, medicine, books, or utilities).
+        - Read the "Detailed Transaction List" below (which contains descriptions/reasons, e.g. "cycle repair") to comment on specific things intelligently. For example, if they spend ₹3,000 on "cycle repair", acknowledge that repairing their cycle is a smart choice to avoid high cab fares, but lecture them to bargain or make sure the mechanic didn't cheat them.
+        - Give smart financial advice rather than blindly shouting. If they spend too much on restaurants, suggest eating at the canteen/mess or packing snacks.
+        - Use relatable Telugu parenting phrases in actual Telugu script characters (like "బాబు" / "నాన్న", "డబ్బు చెట్లకు కాస్తుందా?" [Does money grow on trees?], "వృథా ఖర్చులు" [wasteful expenses], etc.) mixed directly into the English response. Write mostly in English but blend these Telugu script phrases in naturally. Use the ₹ symbol.
 
         Data:
         Month: {aggregates['month']}/{aggregates['year']}
         Total Spent: ₹{aggregates['total_spent']:.0f}
         Transactions Logged: {aggregates['transaction_count']}
         Top Merchant: {aggregates.get('top_merchant', 'N/A')}
-        By Category:
+        By Category (and Subcategory):
         {category_lines}
+
+        Detailed Transaction List (reason/description, amount, category):
+        {aggregates.get('transaction_list', 'N/A')}
 """
     result = llm.invoke(prompt)
     return result.content
