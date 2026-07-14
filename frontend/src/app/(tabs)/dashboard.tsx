@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -23,6 +23,18 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await get_summary();
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const get_summary = async () => {
     try {
@@ -47,7 +59,7 @@ export default function Dashboard() {
   if (loading && !summary) {
     return (
       <SafeAreaView style={[styles.container, styles.centerContainer]}>
-        <ActivityIndicator size="large" color="#5F33E1" />
+        <ActivityIndicator size="large" color="#059669" />
         <Text style={styles.loadingText}>Loading Dashboard...</Text>
       </SafeAreaView>
     );
@@ -76,7 +88,17 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={["#059669"]} 
+            tintColor="#059669" 
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -84,7 +106,7 @@ export default function Dashboard() {
             <Text style={styles.appName}>paiseWise</Text>
           </View>
           <Pressable style={styles.profileBadge}>
-            <Ionicons name="person-circle-outline" size={32} color="#5F33E1" />
+            <Ionicons name="person-circle-outline" size={32} color="#059669" />
           </Pressable>
         </View>
 
@@ -96,13 +118,13 @@ export default function Dashboard() {
           </Text>
           <View style={styles.heroMeta}>
             <View style={styles.metaItem}>
-              <Ionicons name="arrow-up-circle" size={18} color="#10B981" />
+              <Ionicons name="arrow-down-circle" size={18} color="#10B981" />
               <Text style={styles.metaText}>
                 Income: ₹{totalIncome.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="arrow-down-circle" size={18} color="#EF4444" />
+              <Ionicons name="arrow-up-circle" size={18} color="#EF4444" />
               <Text style={styles.metaText}>
                 Expenses: ₹{totalExpense.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </Text>
@@ -125,8 +147,8 @@ export default function Dashboard() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionGrid}>
           <Pressable style={styles.actionCard} onPress={() => router.push('/upload')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: '#EEF2FF' }]}>
-              <Ionicons name="cloud-upload" size={24} color="#6366F1" />
+            <View style={[styles.actionIconContainer, { backgroundColor: '#ECFDF5' }]}>
+              <Ionicons name="cloud-upload" size={24} color="#10B981" />
             </View>
             <Text style={styles.actionTitle}>Upload PDF</Text>
             <Text style={styles.actionDesc}>Import statement</Text>
@@ -144,7 +166,7 @@ export default function Dashboard() {
         {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
-            <Ionicons name="sparkles" size={20} color="#5F33E1" />
+            <Ionicons name="sparkles" size={20} color="#059669" />
             <Text style={styles.summaryTitle}>AI Expense Insights</Text>
           </View>
           <Text style={styles.summaryText}>{insightsText}</Text>
@@ -186,7 +208,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   header: {
     flexDirection: 'row',
@@ -298,7 +320,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     borderLeftWidth: 4,
-    borderLeftColor: '#5F33E1',
+    borderLeftColor: '#059669',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -335,7 +357,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#5F33E1',
+    backgroundColor: '#059669',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
@@ -407,7 +429,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#5F33E1',
+    backgroundColor: '#059669',
     borderRadius: 4,
   },
 });

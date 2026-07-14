@@ -8,7 +8,12 @@ except ModuleNotFoundError:
 
 connect_args = {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+engine = create_engine(
+    settings.DATABASE_URL, 
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=300
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 class Base(DeclarativeBase):

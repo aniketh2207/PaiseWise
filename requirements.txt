@@ -2,3 +2,4 @@ slack-bolt
 python-dotenv
 langchain-google-genai  
 psycopg2-binary
+openpyxl

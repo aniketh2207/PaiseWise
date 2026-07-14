@@ -134,7 +134,40 @@ def generate_summary(aggregates: dict) -> str:
     return result.content
 
 
-    
+def generate_parent_report_summary(report_data: dict) -> str:
+    category_lines = "\n".join(
+        f"  - {cat}: ₹{amount:.2f}"
+        for cat, amount in sorted(
+            report_data["by_category"].items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+    )
+
+    prompt = f"""
+        You are a helpful, professional personal finance analyst writing a monthly summary report for a college student's parent.
+        Your goal is to provide a clear, concise, and structured overview (3-4 sentences/lines) of how their child has spent their money during the month.
+        
+        Guidelines:
+        - Address the parent directly. Do not speak to or lecture the student (e.g. say "Your child spent..." rather than "You spent...").
+        - Keep the tone respectful, analytical, and reassuring. Avoid overly harsh parenting scolding, but point out areas of high spend objectively.
+        - Comment on key spending categories, total outgoing expenses, and any significant purchases from the transaction list.
+        - Highlight if the child is maintaining a reasonable budget. Use the ₹ symbol for currency.
+        
+        Report Data:
+        - Month: {report_data['month']}/{report_data['year']}
+        - Total Outgoing (Debits): ₹{report_data['total_spent']:.2f}
+        - Total Incoming (Credits): ₹{report_data['total_credits']:.2f}
+        - Category Breakdown:
+        {category_lines}
+        
+        Significant/Top Expenses:
+        {report_data.get('transaction_list', 'None logged.')}
+"""
+    result = llm.invoke(prompt)
+    return result.content
+
+
 if __name__ == "__main__":
     test_msg = "80 canteen lunch vada pav"
     parsed_expense = parse_slack_expense(test_msg)

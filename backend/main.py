@@ -3,13 +3,16 @@ from database.db import init_db, get_db
 from database.seed import seed_categories
 from tools.llm_client import parse_slack_expense
 from tools.pdf_parser import extract_gpay_transactions,get_file_hash
-from typing import Annotated
+from typing import Annotated, Optional
 from database.models import *
 from database.db import SessionLocal
 from agents.reconcilation_agent import full_pipeline, run_reconciliation
 from agents.ingestion_agent import ingestion_pipeline
 from pydantic import BaseModel
 from tools.llm_client import generate_summary
+from fastapi.responses import StreamingResponse
+import io
+from agents.report_agent import generate_report, send_report
 import io
 import json
 
@@ -242,5 +245,75 @@ def get_dashboard_summary(month: int = None, year: int = None):
             "llm_summary": llm_summary
         }
 
+    finally:
+        db.close()
+
+@app.get("/api/reports/generate")
+def api_generate_report(month: int, year: int):
+    result = generate_report(month, year)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"status": "success", "insights": result["insights"]}
+
+
+@app.get("/api/reports/download")
+def api_download_report(month: int, year: int):
+    result = generate_report(month, year)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return StreamingResponse(
+        io.BytesIO(result["excel_bytes"]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=PaiseWise_{month}_{year}.xlsx"},
+    )
+
+
+class SendReportRequest(BaseModel):
+    month: int
+    year: int
+    recipient_ids: Optional[list[int]] = None
+
+@app.post("/api/reports/send")
+def api_send_report(payload: SendReportRequest):
+    result = send_report(payload.month, payload.year, payload.recipient_ids)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+class RecipientCreate(BaseModel):
+    name: str
+    email: str
+
+@app.get("/api/recipients")
+def get_recipients():
+    db = SessionLocal()
+    try:
+        return db.query(ReportRecipient).filter(ReportRecipient.active == True).all()
+    finally:
+        db.close()
+
+@app.post("/api/recipients")
+def add_recipient(payload: RecipientCreate):
+    db = SessionLocal()
+    try:
+        db.add(ReportRecipient(name=payload.name, email=payload.email))
+        db.commit()
+        return {"message": "Recipient added"}
+    finally:
+        db.close()
+
+        
+@app.delete("/api/recipients/{recipient_id}")
+def remove_recipient(recipient_id: int):
+    db = SessionLocal()
+    try:
+        recipient = db.query(ReportRecipient).filter(ReportRecipient.id == recipient_id).first()
+        if not recipient:
+            raise HTTPException(status_code=404, detail="Recipient not found")
+        
+        recipient.active = False
+        db.commit()
+        return {"message": f"Recipient {recipient_id} deactivated"}
     finally:
         db.close()

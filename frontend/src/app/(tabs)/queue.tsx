@@ -127,7 +127,7 @@ export default function Queue() {
 
             {loading ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#5F33E1" />
+                    <ActivityIndicator size="large" color="#059669" />
                     <Text style={styles.loadingText}>Fetching pending items...</Text>
                 </View>
             ) : error !== '' ? (
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     listContent: {
-        paddingBottom: 24,
+        paddingBottom: 110,
     },
     cardWrapper: {
         marginBottom: 14,

@@ -108,7 +108,7 @@ export default function Upload() {
             {/* Upload Area */}
             <View style={styles.uploadCard}>
                 <View style={styles.iconCircle}>
-                    <Ionicons name="document-text" size={44} color="#6366F1" />
+                    <Ionicons name="document-text" size={44} color="#10B981" />
                 </View>
                 <Text style={styles.uploadTitle}>Upload PDF Statement</Text>
                 <Text style={styles.uploadDesc}>Select a Google Pay exported PDF statement file from your device.</Text>
@@ -131,7 +131,7 @@ export default function Upload() {
             <View style={styles.statusContainer}>
                 {loading && (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#5F33E1" />
+                        <ActivityIndicator size="large" color="#059669" />
                         <Text style={styles.loadingText}>Reading PDF and extracting transactions...</Text>
                     </View>
                 )}
@@ -147,6 +147,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F8FAFC',
         paddingHorizontal: 24,
         paddingTop: 16,
+        paddingBottom: 110,
     },
     header: {
         marginBottom: 32,
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: '#EEF2FF',
+        backgroundColor: '#ECFDF5',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
@@ -205,14 +206,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#5F33E1',
+        backgroundColor: '#059669',
         paddingHorizontal: 28,
         paddingVertical: 14,
         borderRadius: 14,
         width: '100%',
     },
     uploadBtnPressed: {
-        backgroundColor: '#4B25B3',
+        backgroundColor: '#047857',
         opacity: 0.9,
     },
     uploadBtnDisabled: {

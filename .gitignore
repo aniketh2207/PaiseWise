@@ -21,4 +21,13 @@ dist/
 # Tool-specific configurations
 .claude/
 
+# Google API Credentials & Tokens
+credentials.json
+token.json
+generate_token.py
+
+# Generated Reports
+backend/saved_reports/
+*.xlsx
+
 

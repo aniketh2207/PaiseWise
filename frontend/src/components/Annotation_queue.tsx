@@ -144,7 +144,7 @@ export default function AnnotateModal({ visible, transaction, onClose, onSave }:
                             <Ionicons 
                                 name={remember ? 'checkbox' : 'square-outline'} 
                                 size={22} 
-                                color={remember ? '#5F33E1' : '#64748B'} 
+                                color={remember ? '#059669' : '#64748B'} 
                                 style={{ marginRight: 8 }} 
                             />
                             <Text style={styles.rememberText}>Remember category for this UPI merchant</Text>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     saveBtn: { 
-        backgroundColor: '#5F33E1', 
+        backgroundColor: '#059669', 
         paddingHorizontal: 24, 
         paddingVertical: 14, 
         borderRadius: 14,
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         flex: 1,
         // shadow
-        shadowColor: '#5F33E1',
+        shadowColor: '#059669',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 3,
     },
     saveBtnPressed: {
-        backgroundColor: '#4B25B3',
+        backgroundColor: '#047857',
         opacity: 0.9,
     },
     saveBtnDisabled: {
