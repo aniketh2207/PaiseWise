@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, TextInput, Linking, Alert, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, TextInput, Linking, Alert, RefreshControl, Platform, KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ interface Recipient {
 
 export default function Reports() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   
   // State for Month and Year
   const [month, setMonth] = useState<number>(6); // Defaulting to June (6) to match available seed data
@@ -221,9 +222,14 @@ export default function Reports() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl 
@@ -395,7 +401,8 @@ export default function Reports() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 

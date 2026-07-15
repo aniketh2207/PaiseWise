@@ -32,7 +32,7 @@ def validate_parse(state:ParsingState)->ParsingState:
     if not expense:
         return {
             "is_valid":False,
-            "reply_message": "Sorry, I coulcn't understand the message from the slack bot"
+            "reply_message": "Sorry, I couldn't understand the message. Try rephrasing it."
         }
     if expense.amount <= 0 or expense.confidence < 0.6:
         reply = f"Got ₹{expense.amount if expense else 'unknown'} but not sure of the category. Reply with: food / travel / shopping etc."

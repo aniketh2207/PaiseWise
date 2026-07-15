@@ -15,6 +15,9 @@ import io
 from agents.report_agent import generate_report, send_report
 import io
 import json
+from agents.parsing_agent import parse_agent
+from agents.query_agent import generate_sql, generate_answer
+from agents.router_agent import classify_intent, generate_conversational_reply
 
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="PaiseWise")
@@ -317,3 +320,78 @@ def remove_recipient(recipient_id: int):
         return {"message": f"Recipient {recipient_id} deactivated"}
     finally:
         db.close()
+
+
+class HistoryMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatMessage(BaseModel):
+    message: str
+    history: Optional[list[HistoryMessage]] = None
+
+
+@app.post("/api/chat")
+def handle_chat_message(payload: ChatMessage):
+    """
+    Single entrypoint for both expense logging and spending questions.
+    Uses LLM-based intent classification to route messages.
+    """
+    from datetime import datetime
+    from sqlalchemy import text
+
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    history_data = payload.history or []
+    intent = classify_intent(message, history_data)
+    print(f"[Router] Message: '{message}' -> Intent: '{intent}'")
+
+    if intent == "query":
+        db = SessionLocal()
+        try:
+            sql = generate_sql(message, history_data)
+            result = db.execute(text(sql)).fetchall()
+            answer = generate_answer(message, result, history_data)
+            return {"type": "answer", "reply": answer}
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return {"type": "error", "reply": "Sorry, I couldn't process that question. Try rephrasing it."}
+        finally:
+            db.close()
+    elif intent == "log":
+        try:
+            result = parse_agent.invoke({
+                "raw_message": message,
+                "slack_message_id": f"app_{datetime.now().timestamp()}",
+                "channel_id": "mobile_app",
+                "log_date": datetime.now().date().isoformat(),
+            })
+            reply = result.get("reply_message", "Logged successfully.")
+            return {"type": "log", "reply": reply}
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return {"type": "error", "reply": "Sorry, I couldn't log that expense. Try rephrasing it."}
+    elif intent == "followup":
+        try:
+            result = parse_agent.invoke({
+                "raw_message": message,
+                "slack_message_id": f"app_{datetime.now().timestamp()}",
+                "channel_id": "mobile_app",
+                "log_date": datetime.now().date().isoformat(),
+            })
+            reply = result.get("reply_message", "Logged successfully.")
+            return {"type": "log", "reply": reply}
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return {"type": "error", "reply": "Sorry, I couldn't process that. Try rephrasing it."}
+    elif intent == "conversational":
+        reply = generate_conversational_reply(message, history_data)
+        return {"type": "answer", "reply": reply}
+    else:
+        return {"type": "answer", "reply": "I'm not sure what you mean. Try asking a spending question or logging an expense!"}

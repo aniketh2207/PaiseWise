@@ -8,7 +8,7 @@ export default function TabLayout() {
   const router = useRouter();
 
   // Tab routes sequence in the bottom bar layout
-  const routeOrder = ['/dashboard', '/queue', '/upload', '/reports'];
+  const routeOrder = ['/dashboard', '/queue', '/chat', '/upload', '/reports'];
 
   // Handle page transitions based on horizontal swipe action
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -39,23 +39,22 @@ export default function TabLayout() {
     })
   ).current;
 
-  // Helper to dynamically compile screen options for active popping tabs
+  // Helper to dynamically compile screen options for active tabs
   const getScreenOptions = (
     title: string,
     activeIcon: keyof typeof Ionicons.glyphMap,
     inactiveIcon: keyof typeof Ionicons.glyphMap
   ) => ({
     title,
-    tabBarLabel: ({ focused, color }: { focused: boolean; color: any }) => 
-      focused ? null : (
-        <Text style={[styles.tabBarLabel, { color }]}>{title}</Text>
-      ),
+    tabBarLabel: ({ color }: { color: any }) => (
+      <Text style={[styles.tabBarLabel, { color }]}>{title}</Text>
+    ),
     tabBarIcon: ({ color, focused }: { color: any; focused: boolean }) => (
-      <View style={focused ? styles.fabContainer : styles.normalIconContainer}>
+      <View style={styles.normalIconContainer}>
         <Ionicons 
           name={focused ? activeIcon : inactiveIcon} 
           size={focused ? 24 : 22} 
-          color={focused ? '#FFFFFF' : color} 
+          color={color} 
         />
       </View>
     ),
@@ -70,6 +69,7 @@ export default function TabLayout() {
           tabBarActiveTintColor: '#34D399', // mint/green active icon
           tabBarInactiveTintColor: '#94A3B8', // soft slate inactive icon
           tabBarStyle: styles.tabBar,
+          tabBarHideOnKeyboard: true,
         }}
       >
         <Tabs.Screen
@@ -79,6 +79,10 @@ export default function TabLayout() {
         <Tabs.Screen
           name="queue"
           options={getScreenOptions('Queue', 'list', 'list-outline')}
+        />
+        <Tabs.Screen
+          name="chat"
+          options={getScreenOptions('Chat', 'chatbubbles', 'chatbubbles-outline')}
         />
         <Tabs.Screen
           name="upload"
@@ -98,11 +102,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBar: {
-   position: 'absolute',
+    position: 'absolute',
     bottom: 24,
     left: 0,
     right: 0,
-    marginHorizontal: 20, // Forces exactly 20px of space on both sides
+    marginHorizontal: 20,
     backgroundColor: '#0F172A', 
     borderRadius: 24,
     height: 70, 
@@ -128,21 +132,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     height: 38,
-  },
-  fabContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#059669', // Emerald Green brand FAB
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -22, // Popping vertical offset above the tab bar top boundary
-    borderWidth: 3,
-    borderColor: '#0F172A', // Seamless outer border ring matching the tab bar color (integrated cut-out)
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
   },
 });

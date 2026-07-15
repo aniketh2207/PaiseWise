@@ -22,4 +22,5 @@ export const API_ROUTES = {
   sendReport: `${API_BASE_URL}/api/reports/send`,
   recipients: `${API_BASE_URL}/api/recipients`,
   deleteRecipient: (id: number) => `${API_BASE_URL}/api/recipients/${id}`,
+  chat: `${API_BASE_URL}/api/chat`,
 };

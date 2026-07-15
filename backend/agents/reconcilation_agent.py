@@ -54,10 +54,10 @@ def run_reconciliation():
                 SlackLog.matched_txn_id == None
             ).all()
 
-            # 1. Filter candidates by amount tolerance (<= 0.1 variance)
+            # 1. Filter candidates by amount tolerance (<= 5.0 variance to handle rounding)
             candidate_matches = [
                 log for log in slack_logs 
-                if abs(bank_log.amount - log.amount) <= 0.1
+                if abs(bank_log.amount - log.amount) <= 0.75
             ]
 
             if not candidate_matches:

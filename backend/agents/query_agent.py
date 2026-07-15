@@ -1,6 +1,7 @@
 from datetime import datetime
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import AIMessage, HumanMessage
 
 try:
     from backend.tools.llm_client import llm
@@ -45,37 +46,65 @@ sql_generation_prompt = ChatPromptTemplate.from_messages([
 
     Rules:
     - Today's date is: {current_date}
-    - To filter by month or year, use PostgreSQL EXTRACT, e.g., EXTRACT(MONTH FROM log_date) = 6 AND EXTRACT(YEAR FROM log_date) = 2026. For bank transactions, you can also use the 'month' and 'year' integer columns or extract from the 'date' column.
+    - IMPORTANT: Always use the 'bank_transactions' table as the primary source of truth for spending queries (totals, breakdowns, comparisons). It contains the actual reconciled bank amounts. Only use 'slack_logs' if the user explicitly asks about their manual logs or logged reasons.
+    - For bank_transactions, filter spending with type = 'debit'. Credits (type = 'credit') are incoming money.
+    - To filter by month or year, use the 'month' and 'year' integer columns on bank_transactions (e.g., month = 7 AND year = 2026).
     - Use LOWER() for text comparisons to prevent case sensitivity issues.
     - All transactions are done in Rupees.
     """),
+    ("placeholder", "{chat_history}"),
     ("human", "{question}")
 ])
 sql_chain = sql_generation_prompt | llm | StrOutputParser()
 
 response_formatting_prompt = ChatPromptTemplate.from_messages([
     ("system", """
-    You are a helpful personal finance assistant. 
-    Take the user's original question and the raw SQL database result, and formulate a friendly, concise response.
-    Keep it short and straight to the point for a Slack message.
+    You are a helpful, premium personal finance assistant inside the PaiseWise mobile app.
+    Take the user's original question and the raw SQL database result, and formulate a friendly, beautifully formatted response.
+    
+    Formatting Guidelines:
+    - Use clean Markdown formatting.
+    - Always use the Indian Rupee symbol (₹) for all currency values (e.g., ₹1,250 instead of 1250, Rs. 1250, or INR).
+    - If there are lists or multiple rows of data, format them using clean markdown bullet points, or structured tables.
+    - Organize the information logically with clear headings if necessary.
+    - Translate raw database tuple formats (like `[(120.0,)]` or `[('Rent', 15000)]`) into clean, conversational language.
+    - Do not show raw SQL terms, technical data structures, or code blocks in the output.
+    - Keep it clear, readable, and perfectly suited for a mobile chat bubble.
     """),
+    ("placeholder", "{chat_history}"),
     ("human", "Question: {question}\nSQL Result: {result}")
 ])
 response_chain = response_formatting_prompt | llm | StrOutputParser()
 
-def generate_sql(query: str) -> str:
+def _format_history(history):
+    formatted = []
+    for msg in history:
+        role = getattr(msg, "role", None) or (msg.get("role") if isinstance(msg, dict) else "")
+        content = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else "")
+        
+        if role == "user":
+            formatted.append(HumanMessage(content=content))
+        elif role == "assistant":
+            formatted.append(AIMessage(content=content))
+    return formatted
+
+def generate_sql(query: str, history=None) -> str:
     """Takes a user question and returns a raw SQL string."""
     today_str = datetime.now().strftime("%Y-%m-%d")
+    chat_history = _format_history(history or [])
 
     return sql_chain.invoke({
         "current_date": today_str,
+        "chat_history": chat_history,
         "question": query
     }).strip()
 
-def generate_answer(question: str, raw_sql_result: str) -> str:
+def generate_answer(question: str, raw_sql_result: str, history=None) -> str:
     """Takes the question and the DB data, and returns a natural language string."""
+    chat_history = _format_history(history or [])
 
     return response_chain.invoke({
         "question": question,
-        "result": str(raw_sql_result)
+        "result": str(raw_sql_result),
+        "chat_history": chat_history
     })
