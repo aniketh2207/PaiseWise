@@ -131,7 +131,9 @@ def generate_summary(aggregates: dict) -> str:
         {aggregates.get('transaction_list', 'N/A')}
 """
     result = llm.invoke(prompt)
-    return result.content
+    if isinstance(result.content, list):
+        return "".join(block.get("text", "") for block in result.content if isinstance(block, dict) and block.get("type") == "text")
+    return str(result.content)
 
 
 def generate_parent_report_summary(report_data: dict) -> str:
@@ -165,7 +167,9 @@ def generate_parent_report_summary(report_data: dict) -> str:
         {report_data.get('transaction_list', 'None logged.')}
 """
     result = llm.invoke(prompt)
-    return result.content
+    if isinstance(result.content, list):
+        return "".join(block.get("text", "") for block in result.content if isinstance(block, dict) and block.get("type") == "text")
+    return str(result.content)
 
 
 if __name__ == "__main__":

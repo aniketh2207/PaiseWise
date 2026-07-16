@@ -169,7 +169,13 @@ export default function Dashboard() {
             <Ionicons name="sparkles" size={20} color="#059669" />
             <Text style={styles.summaryTitle}>AI Expense Insights</Text>
           </View>
-          <Text style={styles.summaryText}>{insightsText}</Text>
+          <Text style={styles.summaryText}>
+            {typeof insightsText === 'string' 
+              ? insightsText 
+              : (Array.isArray(insightsText) 
+                  ? insightsText.map(b => b?.text || '').join('') 
+                  : (insightsText?.text || JSON.stringify(insightsText)))}
+          </Text>
         </View>
 
         {/* Category Breakdown */}
