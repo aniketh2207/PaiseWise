@@ -16,12 +16,8 @@ Configure the following environment variables in your cloud hosting dashboard (R
 |---|---|---|
 | `DATABASE_URL` | Neon PostgreSQL connection string (Production database) | `postgresql://user:password@host/dbname` |
 | `GEMINI_API_KEY` | Your Google Gemini API Key | `AIzaSy...` |
-| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token | `xoxb-...` |
-| `SLACK_APP_TOKEN` | Slack App-Level Token (Socket Mode) | `xapp-...` |
 | `GMAIL_TOKEN_JSON` | **Base64-encoded** content of `token.json` (See Step 2 below) | *(Base64 string)* |
 | `PORT` | Dynamic port injected by the host platform | *(Handled automatically by Railway/Render)* |
-| `UPLOADS_DIR` | Directory for statement uploads | `./uploads` |
-| `REPORTS_DIR` | Directory for reports storage | `./reports` |
 
 ---
 

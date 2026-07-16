@@ -8,15 +8,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./finance.db"
     #GEMINI_API_KEY: str
-    SLACK_BOT_TOKEN: str
-    SLACK_APP_TOKEN: str
-    UPLOADS_DIR: str = "./uploads"
-    REPORTS_DIR: str = "./reports"
+    SLACK_BOT_TOKEN: str = ""
+    SLACK_APP_TOKEN: str = ""
     GEMINI_API_KEY: str
     GMAIL_TOKEN_PATH: str = str(BASE_DIR / "token.json")
     GMAIL_CREDENTIALS_PATH: str = str(BASE_DIR / "credentials.json")
     class Config:
         env_file = str(BASE_DIR / ".env")
+        extra = "ignore"
         
 settings = Settings()
 
