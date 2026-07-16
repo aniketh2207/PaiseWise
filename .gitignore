@@ -3,7 +3,7 @@
 __pycache__/
 *.pyc
 *.db
-backend/config.py
+
 
 # Dependency directories
 node_modules/
