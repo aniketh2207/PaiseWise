@@ -1,4 +1,4 @@
-export const API_BASE_URL = "https://REPLACE_WITH_DEPLOYED_BACKEND_URL";
+export const API_BASE_URL = "https://web-production-b4d83.up.railway.app";
 export const API_ROUTES = {
   dashboardSummary: `${API_BASE_URL}/api/dashboard/summary`,
   annotationQueue: `${API_BASE_URL}/api/get_annotation_queue`,
