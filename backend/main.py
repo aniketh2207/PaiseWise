@@ -33,18 +33,16 @@ app.add_middleware(
 def on_startup():
     init_db()
     seed_categories()
+    try:
+        from backend.tools.token_loader import load_gmail_token
+    except ModuleNotFoundError:
+        from tools.token_loader import load_gmail_token
+    load_gmail_token()
 
 @app.get("/health")
 def health_check():
     return {"status":"ok"}
     
-@app.post("/test_slack_parser")
-def test_parser(message):
-    result = parse_slack_expense(message)
-    return {
-        "result": result
-    }
-
 @app.post("/api/upload-statement")
 async def upload_bank_statement(file: UploadFile = File(...),background_tasks: BackgroundTasks = BackgroundTasks()):
     """
@@ -395,3 +393,10 @@ def handle_chat_message(payload: ChatMessage):
         return {"type": "answer", "reply": reply}
     else:
         return {"type": "answer", "reply": "I'm not sure what you mean. Try asking a spending question or logging an expense!"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

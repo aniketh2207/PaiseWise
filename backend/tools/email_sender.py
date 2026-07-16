@@ -28,6 +28,17 @@ def _get_gmail_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # IMPORTANT FOR DEPLOYMENT: InstalledAppFlow.run_local_server opens a local browser
+            # for user authentication. This interactive flow WILL FAIL on headless cloud hosts
+            # (such as Railway or Render).
+            #
+            # HOW TO DEPLOY:
+            # 1. Run the app or email script LOCALLY once to trigger the interactive consent flow
+            #    and generate the `token.json` file on your local machine.
+            # 2. Convert the contents of the generated `token.json` into a base64 string.
+            # 3. Set that base64 string as the GMAIL_TOKEN_JSON environment variable on the cloud host.
+            # 4. Our `token_loader.py` helper will automatically decode and write the token file to
+            #    disk on cloud startup, allowing this check to succeed without invoking `run_local_server`.
             flow = InstalledAppFlow.from_client_secrets_file(
                 settings.GMAIL_CREDENTIALS_PATH, SCOPES
             )
