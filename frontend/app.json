@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PaiseWise",
-    "slug": "frontend",
+    "slug": "paiseWise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -44,10 +44,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "175672d0-1ba5-405c-bb36-5fb7e16fc0a7"
-      }
+      "router": {}
     }
   }
 }
