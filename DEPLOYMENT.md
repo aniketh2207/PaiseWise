@@ -84,3 +84,57 @@ The frontend is an Expo/React Native app. We use **EAS (Expo Application Service
 2. Locate the downloaded file in your device's downloads folder.
 3. Open/install the `.apk` file.
 4. If prompted with a warning about installing apps from unknown sources, choose **Settings**, toggle on **"Allow from this source"** (for Chrome/Files/etc.), then go back and tap **Install**.
+
+---
+
+## Step 6: Local Android Compilation on Windows (To Bypass Cloud Queues)
+
+If the EAS cloud build queue is long, you can compile the APK locally on your Windows machine in under 5 minutes using your computer's CPU and RAM.
+
+### 1. Configure Android Studio SDK Manager
+1. Open **Android Studio** -> **More Actions** -> **SDK Manager**.
+2. Under **SDK Platforms**, check **Android 14.0 (API Level 34)** or **Android 15 (API Level 35)**.
+3. Under **SDK Tools**, check **Android SDK Command-line Tools (latest)**, **Android Emulator**, and **Android SDK Platform-Tools**. Click **Apply** to install them.
+
+### 2. Accept SDK Licenses
+Open your terminal and run:
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" --licenses
+```
+Type `y` and press **Enter** for all prompts.
+
+### 3. Install NDK (Native C++ Compiler)
+Gradle requires NDK `27.1.12297006` to compile native React Native screens and worklet modules:
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" "ndk;27.1.12297006"
+```
+
+### 4. Generate the Native Project Files
+Navigate to the `frontend/` directory and run:
+```bash
+npx expo prebuild
+```
+
+### 5. Create Local Properties File
+Create a file named [frontend/android/local.properties](file:///e:/paisewise/frontend/android/local.properties) and specify your local Android SDK location:
+```ini
+sdk.dir=C:/Users/<YourWindowsUsername>/AppData/Local/Android/Sdk
+```
+
+### 6. Force Gradle to use Android Studio's Bundled JDK 17
+To prevent compilation conflicts from newer Java versions (like JDK 21+), run this command in your PowerShell terminal to point to the JetBrains Runtime:
+```powershell
+$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
+```
+
+### 7. Clean and Compile the APK
+Navigate into the native android folder and run the compilation wrapper:
+```powershell
+cd android
+.\gradlew.bat clean
+.\gradlew.bat assembleRelease
+```
+
+Once completed, the compiled APK will be generated locally at:
+📁 `frontend/android/app/build/outputs/apk/release/app-release.apk`
+

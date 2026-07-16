@@ -54,7 +54,7 @@ Upload your bank statement PDF at month end. The reconciliation agent:
 | Excel Generation | openpyxl |
 | Email | Gmail API |
 | Scheduling | APScheduler |
-| Frontend | React (Vite) + Tailwind CSS |
+| Frontend | Expo / React Native (TypeScript) |
 
 ---
 
@@ -99,22 +99,19 @@ paisewise/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx
-│   │   ├── api.js
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx         # Charts + stat cards
-│   │   │   ├── Transactions.jsx      # Filterable transaction table
-│   │   │   ├── Annotate.jsx          # Annotation queue
-│   │   │   └── Reports.jsx           # Generate + email reports
-│   │   └── components/
-│   │       ├── StatCard.jsx
-│   │       ├── TransactionRow.jsx
-│   │       ├── SourceBadge.jsx
-│   │       ├── AnnotateCard.jsx
-│   │       ├── DonutChart.jsx
-│   │       └── LineChart.jsx
-│   ├── package.json
-│   └── tailwind.config.js
+│   │   ├── app/                      # Expo Router App Pages
+│   │   │   ├── (tabs)/
+│   │   │   │   ├── dashboard.tsx     # Stats, charts & insights
+│   │   │   │   ├── queue.tsx         # Annotation queue interface
+│   │   │   │   ├── chat.tsx          # Real-time natural language query
+│   │   │   │   ├── upload.tsx        # Upload bank statement PDF
+│   │   │   │   └── reports.tsx       # Generate parent reports
+│   │   │   └── _layout.tsx
+│   │   ├── components/               # Custom UI Components
+│   │   └── constants/                # Configuration & API endpoints
+│   ├── app.json                  # Expo Config
+│   ├── eas.json                  # EAS Build profile config
+│   └── package.json
 │
 ├── reports/                          # Generated Excel files (gitignored)
 ├── uploads/                          # Temp PDF storage (gitignored)
@@ -225,10 +222,10 @@ python backend/slack_client.py
 uvicorn backend.main:app --reload
 ```
 
-**Frontend** (run when using the web dashboard):
+**Frontend** (run during local development):
 ```bash
 cd frontend
-npm run dev
+npx expo start
 ```
 
 The Slack bot and backend are independent processes. The bot does not require the backend to be running.
@@ -253,10 +250,10 @@ The Slack bot and backend are independent processes. The bot does not require th
 ## Build Phases
 
 - [x] **Phase 1** — Slack bot: real-time expense logging, `/summary`, `/ask`, Neon DB
-- [ ] **Phase 2** — Bank PDF ingestion + reconciliation agent
-- [ ] **Phase 3** — Dashboard + Annotation Queue (React frontend)
-- [ ] **Phase 4** — Report agent: Excel generation + Gmail auto-send
-- [ ] **Phase 5** — Polish: pattern learning, correction system, budget alerts
+- [x] **Phase 2** — Bank PDF ingestion + reconciliation agent
+- [x] **Phase 3** — Dashboard + Annotation Queue (Expo / React Native mobile app)
+- [x] **Phase 4** — Report agent: Excel generation + Gmail auto-send
+- [x] **Phase 5** — Polish: pattern learning, correction system, budget alerts
 
 ---
 
