@@ -15,7 +15,7 @@ interface Summary {
   top_merchant: string | null;
   match_rate: number;
   pending_annotations: number;
-  llm_summary?: string;
+  llm_summary?: any;
 }
 
 export default function Dashboard() {
