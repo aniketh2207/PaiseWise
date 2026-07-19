@@ -170,6 +170,10 @@ def annotate_transaction(txn_id: int, payload: AnnotationUpdate):
         db.close()
 
 
+# Server-side cache to prevent redundant LLM summary generation
+DASHBOARD_SUMMARY_CACHE = {}
+
+
 @app.get("/api/dashboard/summary")
 def get_dashboard_summary(month: int = None, year: int = None):
     db = SessionLocal()
@@ -222,18 +226,26 @@ def get_dashboard_summary(month: int = None, year: int = None):
 
         by_category_data = json.loads(db_summary.by_category or "{}")
 
-        # Map to the exact structure expected by generate_summary in llm_client.py
-        aggregates_payload = {
-            "month": month,
-            "year": year,
-            "total_spent": db_summary.total_debits or 0.0,
-            "transaction_count": db_summary.bank_txn_count or 0,
-            "by_category": by_category_data,
-            "top_merchant": db_summary.top_merchant or "N/A",
-            "transaction_list": "\n".join(txn_lines)
-        }
+        # Generate state key based on current transaction/annotation state
+        state_key = f"{month}-{year}-{db_summary.bank_txn_count}-{db_summary.total_debits:.2f}-{db_summary.total_credits:.2f}-{pending}-" + "|".join(
+            f"{t.id}:{t.amount}:{t.category or ''}:{t.reason or ''}" for t in txns_details
+        )
 
-        llm_summary = generate_summary(aggregates_payload)
+        if state_key in DASHBOARD_SUMMARY_CACHE:
+            llm_summary = DASHBOARD_SUMMARY_CACHE[state_key]
+        else:
+            # Map to the exact structure expected by generate_summary in llm_client.py
+            aggregates_payload = {
+                "month": month,
+                "year": year,
+                "total_spent": db_summary.total_debits or 0.0,
+                "transaction_count": db_summary.bank_txn_count or 0,
+                "by_category": by_category_data,
+                "top_merchant": db_summary.top_merchant or "N/A",
+                "transaction_list": "\n".join(txn_lines)
+            }
+            llm_summary = generate_summary(aggregates_payload)
+            DASHBOARD_SUMMARY_CACHE[state_key] = llm_summary
 
         return {
             "exists": True,

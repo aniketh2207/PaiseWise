@@ -2,10 +2,11 @@ import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Refre
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import axios from 'axios';
 import { API_ROUTES } from '../../constants/api';
+import { dashboardCache } from '../../utils/dashboardCache';
 
 interface Summary {
   exists: boolean;
@@ -25,23 +26,63 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
+  // State for Month and Year
+  const [month, setMonth] = useState<number>(6); // Defaulting to June (6) to match available seed data
+  const [year, setYear] = useState<number>(2026); // Defaulting to 2026 to match available seed data
+
+  const monthsList = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const handlePrevMonth = () => {
+    if (month === 1) {
+      setMonth(12);
+      setYear(prev => prev - 1);
+    } else {
+      setMonth(prev => prev - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (month === 12) {
+      setMonth(1);
+      setYear(prev => prev + 1);
+    } else {
+      setMonth(prev => prev + 1);
+    }
+  };
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await get_summary();
+      await get_summary(month, year, true);
     } catch (err) {
       console.log(err);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [month, year]);
 
-  const get_summary = async () => {
+  const get_summary = async (targetMonth: number, targetYear: number, force: boolean = false) => {
+    const cacheKey = `${targetYear}-${targetMonth}`;
+    if (!force && !dashboardCache.needsRefresh && dashboardCache.cache[cacheKey]) {
+      setSummary(dashboardCache.cache[cacheKey]);
+      setLoading(false);
+      setError("");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
-      const response = await axios.get(API_ROUTES.dashboardSummary);
+      setSummary(null);
+      const response = await axios.get(API_ROUTES.dashboardSummary, {
+        params: { month: targetMonth, year: targetYear }
+      });
       setSummary(response.data);
+      dashboardCache.cache[cacheKey] = response.data;
+      dashboardCache.needsRefresh = false;
     } catch (err) {
       console.log(err);
       setError('Failed to fetch summary');
@@ -52,8 +93,8 @@ export default function Dashboard() {
 
   useFocusEffect(
     useCallback(() => {
-      get_summary();
-    }, [])
+      get_summary(month, year, false);
+    }, [month, year])
   );
 
   if (loading && !summary) {
@@ -70,7 +111,7 @@ export default function Dashboard() {
       <SafeAreaView style={[styles.container, styles.centerContainer]}>
         <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={get_summary}>
+        <Pressable style={styles.retryButton} onPress={() => get_summary(month, year, true)}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </Pressable>
       </SafeAreaView>
@@ -107,6 +148,22 @@ export default function Dashboard() {
           </View>
           <Pressable style={styles.profileBadge}>
             <Ionicons name="person-circle-outline" size={32} color="#059669" />
+          </Pressable>
+        </View>
+
+        {/* Period Navigation Selector */}
+        <View style={styles.periodCard}>
+          <Pressable style={styles.arrowButton} onPress={handlePrevMonth}>
+            <Ionicons name="chevron-back" size={20} color="#059669" />
+          </Pressable>
+          <View style={styles.periodTextContainer}>
+            <Ionicons name="calendar" size={16} color="#059669" style={{ marginRight: 8 }} />
+            <Text style={styles.periodLabel}>
+              {monthsList[month - 1]} {year}
+            </Text>
+          </View>
+          <Pressable style={styles.arrowButton} onPress={handleNextMonth}>
+            <Ionicons name="chevron-forward" size={20} color="#059669" />
           </Pressable>
         </View>
 
@@ -437,5 +494,39 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#059669',
     borderRadius: 4,
+  },
+  periodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 24,
+  },
+  arrowButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  periodTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  periodLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });

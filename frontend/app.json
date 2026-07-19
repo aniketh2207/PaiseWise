@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",
+    "updates": {
+      "url": "https://u.expo.dev/175672d0-1ba5-405c-bb36-5fb7e16fc0a7"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"

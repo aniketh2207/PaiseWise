@@ -5,6 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useState } from 'react';
 import axios from 'axios';
 import { API_ROUTES } from '../../constants/api';
+import { dashboardCache } from '../../utils/dashboardCache';
 
 export default function Upload() {
     const [status, setStatus] = useState<string>('');
@@ -53,6 +54,7 @@ export default function Upload() {
                 setStatus(`✅ Uploaded successfully.`);
             }
             console.log('Upload successful', response.data);
+            dashboardCache.invalidate();
 
         } catch (error: any) {
             // Axios conveniently nests backend error messages inside error.response.data

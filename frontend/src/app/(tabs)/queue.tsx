@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ROUTES } from '../../constants/api';
 import AnnotateModal from '../../components/Annotation_queue';
+import { dashboardCache } from '../../utils/dashboardCache';
 
 // Define the blueprint for your transaction
 interface Transaction {
@@ -62,6 +63,7 @@ export default function Queue() {
             });
             // remove from local list immediately (optimistic update)
             set_transactions(prev => prev.filter(t => t.id !== id));
+            dashboardCache.invalidate();
         } catch (error) {
             console.log('Annotation failed', error);
         }
