@@ -171,6 +171,7 @@ def annotate_transaction(txn_id: int, payload: AnnotationUpdate):
 
 
 # Server-side cache to prevent redundant LLM summary generation
+# This reduces Gemini API token usage and improves page load times.
 DASHBOARD_SUMMARY_CACHE = {}
 
 
