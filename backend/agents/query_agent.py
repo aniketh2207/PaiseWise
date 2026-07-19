@@ -46,9 +46,23 @@ sql_generation_prompt = ChatPromptTemplate.from_messages([
 
     Rules:
     - Today's date is: {current_date}
-    - IMPORTANT: Always use the 'bank_transactions' table as the primary source of truth for spending queries (totals, breakdowns, comparisons). It contains the actual reconciled bank amounts. Only use 'slack_logs' if the user explicitly asks about their manual logs or logged reasons.
+    - IMPORTANT: Bank statements ('bank_transactions') are uploaded periodically, whereas Slack logs ('slack_logs') are logged daily in real-time.
+    - To get an accurate, real-time picture of spending (especially for recent queries like "today", "yesterday", "this week", or "this month"), you MUST combine:
+      1. Reconciled spending: `bank_transactions` where `type = 'debit'`
+      2. Unreconciled spending: `slack_logs` where `matched_txn_id IS NULL` (these represent manual spends that haven't been matched to an uploaded bank statement yet).
+    - Example for total spent yesterday:
+      SELECT COALESCE(SUM(amount), 0) FROM (
+          SELECT amount FROM bank_transactions WHERE date = '{current_date}'::date - 1 AND type = 'debit'
+          UNION ALL
+          SELECT amount FROM slack_logs WHERE log_date = '{current_date}'::date - 1 AND matched_txn_id IS NULL
+      ) as total;
+    - Example for listing transactions from yesterday:
+      SELECT amount, category, reason, 'bank' as source FROM bank_transactions WHERE date = '{current_date}'::date - 1 AND type = 'debit'
+      UNION ALL
+      SELECT amount, category, reason, 'slack' as source FROM slack_logs WHERE log_date = '{current_date}'::date - 1 AND matched_txn_id IS NULL;
+    - If the user explicitly asks *only* about manual/slack logs or *only* about bank transactions, query that specific table directly.
     - For bank_transactions, filter spending with type = 'debit'. Credits (type = 'credit') are incoming money.
-    - To filter by month or year, use the 'month' and 'year' integer columns on bank_transactions (e.g., month = 7 AND year = 2026).
+    - To filter by month or year on bank_transactions, use the 'month' and 'year' integer columns.
     - Use LOWER() for text comparisons to prevent case sensitivity issues.
     - All transactions are done in Rupees.
     """),
