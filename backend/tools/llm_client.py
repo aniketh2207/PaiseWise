@@ -89,14 +89,18 @@ def parse_slack_expense(message: str) -> ExpenseLog:
     """Parse a slack message into an expense log"""
     try:
         categories_str = get_valid_categories_str()
+        print(f"\n--- [LLM Client: Parsing Expense] ---")
+        print(f"Input Message: '{message}'")
         result = parsing_chain.invoke({
             "slack_message": message,
             "valid_categories": categories_str
         })
+        print(f"Parsed Expense Log: {result}\n------------------------------------")
         return result
     except Exception as e:
-        print(f"Error while parsing the message: {e}")
+        print(f"[LLM Client Error] Error while parsing message '{message}': {e}")
         return None
+
 
 def generate_summary(aggregates: dict) -> str:
     category_lines = "\n".join(

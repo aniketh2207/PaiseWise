@@ -52,7 +52,11 @@ def classify_intent(message: str, history=None) -> str:
     result = result.strip()
     if result not in ["query", "log", "followup", "conversational"]:
         # Fallback to query if ambiguous
-        return "query"
+        result = "query"
+
+    print(f"\n--- [RouterAgent: Intent Classification] ---")
+    print(f"User Message : '{message}'")
+    print(f"Classified Intent: '{result}'\n--------------------------------------------")
     return result
 
 conversational_prompt = ChatPromptTemplate.from_messages([
@@ -70,7 +74,12 @@ conversational_chain = conversational_prompt | llm | StrOutputParser()
 def generate_conversational_reply(message: str, history=None) -> str:
     """Generates a natural conversational response for greetings, thanks, etc."""
     chat_history = _format_history(history or [])
-    return conversational_chain.invoke({
+    reply = conversational_chain.invoke({
         "message": message,
         "chat_history": chat_history
     })
+    print(f"\n--- [RouterAgent: Conversational Reply] ---")
+    print(f"User Message : '{message}'")
+    print(f"LLM Reply    : '{reply}'\n------------------------------------------")
+    return reply
+

@@ -357,19 +357,33 @@ def handle_chat_message(payload: ChatMessage):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     history_data = payload.history or []
+    print(f"\n==================== [CHAT API REQUEST] ====================")
+    print(f"Incoming Message: '{message}'")
+    print(f"History Length  : {len(history_data)}")
+
     intent = classify_intent(message, history_data)
-    print(f"[Router] Message: '{message}' -> Intent: '{intent}'")
+    print(f"Classified Intent: '{intent}'")
 
     if intent == "query":
         db = SessionLocal()
         try:
             sql = generate_sql(message, history_data)
-            result = db.execute(text(sql)).fetchall()
+            # Ensure markdown code blocks are cleaned up if present
+            cleaned_sql = sql.replace("```sql", "").replace("```", "").strip()
+            print(f"[Chat API] Cleaned SQL to execute:\n{cleaned_sql}")
+            
+            result = db.execute(text(cleaned_sql)).fetchall()
+            print(f"[Chat API] Database Query Result ({len(result)} rows returned):\n{result}")
+
             answer = generate_answer(message, result, history_data)
+            print(f"[Chat API] Final LLM Reply:\n{answer}")
+            print(f"===========================================================\n")
             return {"type": "answer", "reply": answer}
-        except Exception:
+        except Exception as e:
             import traceback
+            print(f"[Chat API ERROR in Query handling]: {e}")
             traceback.print_exc()
+            print(f"===========================================================\n")
             return {"type": "error", "reply": "Sorry, I couldn't process that question. Try rephrasing it."}
         finally:
             db.close()
@@ -382,10 +396,15 @@ def handle_chat_message(payload: ChatMessage):
                 "log_date": datetime.now().date().isoformat(),
             })
             reply = result.get("reply_message", "Logged successfully.")
+            print(f"[Chat API Log Agent Result]: {result}")
+            print(f"[Chat API Final LLM Reply]: {reply}")
+            print(f"===========================================================\n")
             return {"type": "log", "reply": reply}
-        except Exception:
+        except Exception as e:
             import traceback
+            print(f"[Chat API ERROR in Log handling]: {e}")
             traceback.print_exc()
+            print(f"===========================================================\n")
             return {"type": "error", "reply": "Sorry, I couldn't log that expense. Try rephrasing it."}
     elif intent == "followup":
         try:
@@ -396,16 +415,26 @@ def handle_chat_message(payload: ChatMessage):
                 "log_date": datetime.now().date().isoformat(),
             })
             reply = result.get("reply_message", "Logged successfully.")
+            print(f"[Chat API Followup Agent Result]: {result}")
+            print(f"[Chat API Final LLM Reply]: {reply}")
+            print(f"===========================================================\n")
             return {"type": "log", "reply": reply}
-        except Exception:
+        except Exception as e:
             import traceback
+            print(f"[Chat API ERROR in Followup handling]: {e}")
             traceback.print_exc()
+            print(f"===========================================================\n")
             return {"type": "error", "reply": "Sorry, I couldn't process that. Try rephrasing it."}
     elif intent == "conversational":
         reply = generate_conversational_reply(message, history_data)
+        print(f"[Chat API Final LLM Reply]: {reply}")
+        print(f"===========================================================\n")
         return {"type": "answer", "reply": reply}
     else:
+        print(f"[Chat API Unknown Intent]: {intent}")
+        print(f"===========================================================\n")
         return {"type": "answer", "reply": "I'm not sure what you mean. Try asking a spending question or logging an expense!"}
+
 
 
 if __name__ == "__main__":

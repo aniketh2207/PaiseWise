@@ -107,18 +107,38 @@ def generate_sql(query: str, history=None) -> str:
     today_str = datetime.now().strftime("%Y-%m-%d")
     chat_history = _format_history(history or [])
 
-    return sql_chain.invoke({
+    sql = sql_chain.invoke({
         "current_date": today_str,
         "chat_history": chat_history,
         "question": query
     }).strip()
 
+    # Strip markdown code blocks if the LLM wrapped the SQL
+    if sql.startswith("```"):
+        lines = sql.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        sql = "\n".join(lines).strip()
+
+    print(f"\n--- [QueryAgent: SQL Generation] ---")
+    print(f"User Question : {query}")
+    print(f"Generated SQL :\n{sql}\n-----------------------------------")
+    return sql
+
 def generate_answer(question: str, raw_sql_result: str, history=None) -> str:
     """Takes the question and the DB data, and returns a natural language string."""
     chat_history = _format_history(history or [])
 
-    return response_chain.invoke({
+    answer = response_chain.invoke({
         "question": question,
         "result": str(raw_sql_result),
         "chat_history": chat_history
     })
+
+    print(f"\n--- [QueryAgent: LLM Answer] ---")
+    print(f"Raw SQL Data: {raw_sql_result}")
+    print(f"LLM Reply   :\n{answer}\n-------------------------------")
+    return answer
+
