@@ -1,12 +1,12 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, Union, List
 
 try:
-    from backend.tools.llm_client import parse_slack_expense, ExpenseLog
+    from backend.tools.llm_client import parse_slack_expense, ExpenseLog, ExpenseLogList
     from backend.database.db import SessionLocal
     from backend.database.models import SlackLog
 except ModuleNotFoundError:
-    from tools.llm_client import parse_slack_expense, ExpenseLog
+    from tools.llm_client import parse_slack_expense, ExpenseLog, ExpenseLogList
     from database.db import SessionLocal
     from database.models import SlackLog
 
@@ -14,10 +14,21 @@ class ParsingState(TypedDict):
     raw_message : str
     slack_message_id: str
     channel_id : str
-    parsed_expense: Optional[ExpenseLog]
+    parsed_expense: Optional[Union[ExpenseLog, ExpenseLogList, List[ExpenseLog]]]
     is_valid:bool
     reply_message:str
     log_date:str
+
+def _extract_expenses(parsed) -> List[ExpenseLog]:
+    if not parsed:
+        return []
+    if isinstance(parsed, ExpenseLogList):
+        return parsed.expenses
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, ExpenseLog):
+        return [parsed]
+    return []
 
 def parse_text(state:ParsingState) ->ParsingState:
      # Node 1 - Parses the raw text from the slack bot
@@ -27,19 +38,20 @@ def parse_text(state:ParsingState) ->ParsingState:
     }
 
 def validate_parse(state:ParsingState)->ParsingState:
-    expense = state.get("parsed_expense")
+    expenses = _extract_expenses(state.get("parsed_expense"))
 
-    if not expense:
+    if not expenses:
         return {
             "is_valid":False,
             "reply_message": "Sorry, I couldn't understand the message. Try rephrasing it."
         }
-    if expense.amount <= 0 or expense.confidence < 0.6:
-        reply = f"Got ₹{expense.amount if expense else 'unknown'} but not sure of the category. Reply with: food / travel / shopping etc."
-        return {
-            "is_valid":False,
-            "reply_message":reply
-        }
+    for expense in expenses:
+        if expense.amount <= 0 or expense.confidence < 0.6:
+            reply = f"Got ₹{expense.amount if expense else 'unknown'} but not sure of the category. Reply with: food / travel / shopping etc."
+            return {
+                "is_valid":False,
+                "reply_message":reply
+            }
 
     return {
         "is_valid" : True
@@ -49,8 +61,8 @@ def slack_save_log(state:ParsingState)->ParsingState:
     # Node 3 - Saves into the database
     db = SessionLocal()
     try :
-        expense = state.get("parsed_expense")
-        if expense:
+        expenses = _extract_expenses(state.get("parsed_expense"))
+        if expenses:
             # Safely handle the log_date
             log_date_val = state.get("log_date")
             from datetime import date, datetime
@@ -64,19 +76,22 @@ def slack_save_log(state:ParsingState)->ParsingState:
             else:
                 log_date = date.today()
 
-            log = SlackLog(
-                slack_message_id=state["slack_message_id"],
-                raw_message=state["raw_message"],
-                amount=expense.amount,
-                category=expense.category,
-                subcategory=expense.subcategory,
-                reason=expense.reason,
-                merchant=expense.merchant if expense.merchant else "Not a merchant or UPI name",
-                log_date=log_date,
-                channel_id=state["channel_id"],
-                parse_confidence=expense.confidence,
-            )
-            db.add(log)
+            base_msg_id = state["slack_message_id"]
+            for idx, expense in enumerate(expenses):
+                msg_id = base_msg_id if idx == 0 else f"{base_msg_id}_{idx}"
+                log = SlackLog(
+                    slack_message_id=msg_id,
+                    raw_message=state["raw_message"],
+                    amount=expense.amount,
+                    category=expense.category,
+                    subcategory=expense.subcategory,
+                    reason=expense.reason,
+                    merchant=expense.merchant if expense.merchant else "Not a merchant or UPI name",
+                    log_date=log_date,
+                    channel_id=state["channel_id"],
+                    parse_confidence=expense.confidence,
+                )
+                db.add(log)
             db.commit()
     finally:
         db.close()
@@ -84,8 +99,9 @@ def slack_save_log(state:ParsingState)->ParsingState:
 
 def confirm_to_user(state:ParsingState)->ParsingState:
     #Node 4 - Confirmation to the user
-    expense = state.get("parsed_expense")
-    reply = f"✅ ₹{expense.amount} {expense.category}/{expense.subcategory} | '{expense.reason}'"
+    expenses = _extract_expenses(state.get("parsed_expense"))
+    lines = [f"✅ ₹{expense.amount} {expense.category}/{expense.subcategory} | '{expense.reason}'" for expense in expenses]
+    reply = "\n".join(lines)
     return {"reply_message": reply}
 
 def route_condition(state:ParsingState):

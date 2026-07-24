@@ -34,12 +34,15 @@ def get_valid_categories_str() -> str:
         db.close()
 
 class ExpenseLog(BaseModel):
-    amount:float = Field(description="The transaction amount. Always positive.")
-    category:str = Field(description="One of: Food, Travel, Shopping, Utilities, Entertainment, Education, Health, Transfer, Other")
+    amount: float = Field(description="The transaction amount. Always positive.")
+    category: str = Field(description="One of: Food, Travel, Shopping, Utilities, Entertainment, Education, Health, Transfer, Other")
     subcategory: str = Field(description="Valid subcategory mapping to the main category.")
     reason: str = Field(description="Short clean description, max 8 words.")
     merchant: Optional[str] = Field(None, description="Merchant name if explicitly mentioned, else null.")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0.")
+
+class ExpenseLogList(BaseModel):
+    expenses: list[ExpenseLog] = Field(description="List of one or more parsed expense logs found in the input message.")
 
 # initialize LLM 
 llm = ChatGoogleGenerativeAI(
@@ -48,32 +51,38 @@ llm = ChatGoogleGenerativeAI(
     api_key=settings.GEMINI_API_KEY
 )
 
-expense_parser = llm.with_structured_output(ExpenseLog)   
+expense_parser = llm.with_structured_output(ExpenseLogList)   
 
 system_prompt = """
 You are an expense parser for a college student in India. 
-Parse their casual Slack message into a structured expense log.
+Parse their casual message or log into a structured list of expense logs.
 
-    Output schema:
-{{
-"amount": <float, positive>,
-"category": <one of the valid categories below>,
-"subcategory": <valid subcategory for that category>,
-"reason": <short clean description, max 8 words>,
-"merchant": <merchant name if explicitly mentioned, else null>,
-}}
-"confidence": <float 0.0-1.0>
+A message may contain a SINGLE transaction or MULTIPLE distinct transactions. Multiple transactions are distinguished using conjunctions like "and", "&", or punctuation like commas (","), semicolons, or newlines (e.g., "100 for auto and 50 for chai", "200 for books, 300 for mess, and 50 for rickshaw").
+You MUST parse EVERY distinct transaction into its own individual item in the `expenses` list.
 
+Output schema:
+A list of expense logs under the key `expenses`:
+[
+  {{
+    "amount": <float, positive>,
+    "category": <one of the valid categories below>,
+    "subcategory": <valid subcategory for that category>,
+    "reason": <short clean description, max 8 words>,
+    "merchant": <merchant name if explicitly mentioned, else null>,
+    "confidence": <float 0.0-1.0>
+  }}
+]
 
 Valid categories and subcategories:
 {valid_categories}
 
 Rules:
+- Parse all separate transactions distinguished by "and", ",", "&", or line breaks into individual ExpenseLog objects in the `expenses` array.
 - Amount is always positive regardless of direction.
 - If the message mentions splitting with someone, category = Transfer/Split.
 - Canteen, dhaba, mess, tiffin -> Food/Canteen.
 - Auto, ola, uber, cab, rick -> Travel/Auto/Cab.
-- If amount is missing, confidence = 0.0.
+- If amount is missing for a transaction, set confidence = 0.0 for that item.
 - College-specific terms: BITS, Pilani, mess, canteen, hostel -> context clues.
 - Common abbreviations: auto -> Auto/Cab, zom -> Zomato, sw -> Swiggy, meds -> Medicine.
 """
@@ -85,8 +94,8 @@ prompt_template = ChatPromptTemplate.from_messages([
 
 parsing_chain = prompt_template|expense_parser
 
-def parse_slack_expense(message: str) -> ExpenseLog:
-    """Parse a slack message into an expense log"""
+def parse_slack_expense(message: str) -> Optional[ExpenseLogList]:
+    """Parse a slack message into a list of expense logs"""
     try:
         categories_str = get_valid_categories_str()
         print(f"\n--- [LLM Client: Parsing Expense] ---")
