@@ -128,19 +128,34 @@ def run_reconciliation():
         db.close()
 
 
-def rebuild_monthly_summary(db,month,year):
-    
+def rebuild_monthly_summary(db, month, year):
     txns = db.query(BankTransaction).filter(BankTransaction.month == month, BankTransaction.year == year).all()
+    unreconciled_slack = db.query(SlackLog).filter(SlackLog.matched_txn_id == None).all()
+    unreconciled_slack_month = [
+        s for s in unreconciled_slack 
+        if s.log_date and s.log_date.month == month and s.log_date.year == year
+    ]
 
-    total_debits = sum(txn.amount for txn in txns if txn.type =='debit')
-    total_credits = sum(txn.amount for txn in txns if txn.type =='credit')
+    total_debits = sum(txn.amount for txn in txns if txn.type == 'debit') + sum(s.amount for s in unreconciled_slack_month)
+    total_credits = sum(txn.amount for txn in txns if txn.type == 'credit')
     by_category = {}
+
     for t in txns:
         if t.type == "debit":
-            cat = t.category or "Uncategorized"
-            sub = t.subcategory or "General"
+            cat = (t.category or "Uncategorized").strip()
+            sub = (t.subcategory or "General").strip()
+            if not cat: cat = "Uncategorized"
+            if not sub: sub = "General"
             key = f"{cat} ({sub})"
-            by_category[key] = by_category.get(key, 0) + t.amount
+            by_category[key] = round(by_category.get(key, 0.0) + t.amount, 2)
+
+    for s in unreconciled_slack_month:
+        cat = (s.category or "Uncategorized").strip()
+        sub = (s.subcategory or "General").strip()
+        if not cat: cat = "Uncategorized"
+        if not sub: sub = "General"
+        key = f"{cat} ({sub})"
+        by_category[key] = round(by_category.get(key, 0.0) + s.amount, 2)
     
     top_merchant = max(
         by_category, key=by_category.get
@@ -150,15 +165,14 @@ def rebuild_monthly_summary(db,month,year):
     debit_count   = len([t for t in txns if t.type == "debit"])
     match_rate    = round(matched_count / debit_count, 2) if debit_count else 0.0
 
-
     existing = db.query(MonthlySummary).filter(
         MonthlySummary.month == month,
         MonthlySummary.year == year
     ).first()
 
     if existing:
-        existing.total_debits    = total_debits
-        existing.total_credits   = total_credits
+        existing.total_debits    = round(total_debits, 2)
+        existing.total_credits   = round(total_credits, 2)
         existing.by_category     = json.dumps(by_category)
         existing.top_merchant    = top_merchant
         existing.bank_txn_count  = len(txns)
@@ -166,8 +180,8 @@ def rebuild_monthly_summary(db,month,year):
     else:
         db.add(MonthlySummary(
             month=month, year=year,
-            total_debits=total_debits,
-            total_credits=total_credits,
+            total_debits=round(total_debits, 2),
+            total_credits=round(total_credits, 2),
             by_category=json.dumps(by_category),
             top_merchant=top_merchant,
             bank_txn_count=len(txns),

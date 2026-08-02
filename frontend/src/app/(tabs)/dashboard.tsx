@@ -26,9 +26,10 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  // State for Month and Year
-  const [month, setMonth] = useState<number>(6); // Defaulting to June (6) to match available seed data
-  const [year, setYear] = useState<number>(2026); // Defaulting to 2026 to match available seed data
+  // State for Month and Year (default to current month & year)
+  const currentDate = new Date();
+  const [month, setMonth] = useState<number>(currentDate.getMonth() + 1);
+  const [year, setYear] = useState<number>(currentDate.getFullYear());
 
   const monthsList = [
     'January', 'February', 'March', 'April', 'May', 'June',

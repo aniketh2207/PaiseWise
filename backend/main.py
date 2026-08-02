@@ -6,7 +6,7 @@ from tools.pdf_parser import extract_gpay_transactions,get_file_hash
 from typing import Annotated, Optional
 from database.models import *
 from database.db import SessionLocal
-from agents.reconcilation_agent import full_pipeline, run_reconciliation
+from agents.reconcilation_agent import full_pipeline, run_reconciliation, rebuild_monthly_summary
 from agents.ingestion_agent import ingestion_pipeline
 from pydantic import BaseModel
 from tools.llm_client import generate_summary
@@ -135,33 +135,69 @@ def annotate_transaction(txn_id: int, payload: AnnotationUpdate):
         if not txn:
             raise HTTPException(status_code=404, detail="Transaction not found")
 
-        txn.category         = payload.category
-        txn.subcategory       = payload.subcategory
-        txn.reason            = payload.reason
-        txn.reconcile_status  = "user_annotated"
-        txn.needs_annotation  = False
+        cat_clean = payload.category.strip() if payload.category else payload.category
+        sub_clean = payload.subcategory.strip() if payload.subcategory else payload.subcategory
+        reason_clean = payload.reason.strip() if payload.reason else payload.reason
+
+        txn.category         = cat_clean
+        txn.subcategory      = sub_clean
+        txn.reason           = reason_clean
+        txn.reconcile_status = "user_annotated"
+        txn.needs_annotation = False
+
+        affected_months_years = {(txn.month, txn.year)}
+
+        # Bulk auto-annotate other transactions in queue with matching UPI if remember_upi or UPI match
+        if txn.upi_name or txn.upi_id:
+            matching_query = db.query(BankTransaction).filter(
+                BankTransaction.needs_annotation == True,
+                BankTransaction.id != txn.id
+            )
+            if txn.upi_name and txn.upi_id:
+                matching_query = matching_query.filter((BankTransaction.upi_name == txn.upi_name) | (BankTransaction.upi_id == txn.upi_id))
+            elif txn.upi_name:
+                matching_query = matching_query.filter(BankTransaction.upi_name == txn.upi_name)
+            else:
+                matching_query = matching_query.filter(BankTransaction.upi_id == txn.upi_id)
+
+            matching_txns = matching_query.all()
+            for m_txn in matching_txns:
+                m_txn.category         = cat_clean
+                m_txn.subcategory      = sub_clean
+                m_txn.reason           = reason_clean
+                m_txn.reconcile_status = "user_annotated"
+                m_txn.needs_annotation = False
+                affected_months_years.add((m_txn.month, m_txn.year))
 
         if payload.remember_upi:
-            existing = db.query(UpiPattern).filter(
-                UpiPattern.upi_id == txn.upi_name
-            ).first()
-            if existing:
-                existing.learned_category    = payload.category
-                existing.learned_subcategory = payload.subcategory
-                existing.user_confirmed      = True
-            else:
-                db.add(UpiPattern(
-                    upi_id              = txn.upi_name,
-                    learned_name        = txn.upi_name,
-                    learned_category    = payload.category,
-                    learned_subcategory = payload.subcategory,
-                    occurrence_count    = 1,
-                    user_confirmed      = True,
-                    last_seen           = txn.date,
-                ))
+            upi_key = txn.upi_name or txn.upi_id
+            if upi_key:
+                existing = db.query(UpiPattern).filter(
+                    UpiPattern.upi_id == upi_key
+                ).first()
+                if existing:
+                    existing.learned_category    = cat_clean
+                    existing.learned_subcategory = sub_clean
+                    existing.user_confirmed      = True
+                else:
+                    db.add(UpiPattern(
+                        upi_id              = upi_key,
+                        learned_name        = upi_key,
+                        learned_category    = cat_clean,
+                        learned_subcategory = sub_clean,
+                        occurrence_count    = 1,
+                        user_confirmed      = True,
+                        last_seen           = txn.date,
+                    ))
 
         db.commit()
-        return {"message": "Annotation saved"}
+
+        # Rebuild monthly summary for all affected months & clear dashboard cache
+        for m, y in affected_months_years:
+            rebuild_monthly_summary(db, m, y)
+        DASHBOARD_SUMMARY_CACHE.clear()
+
+        return {"message": "Annotation saved", "auto_annotated_count": len(matching_txns) if (txn.upi_name or txn.upi_id) else 0}
     except Exception as e:
         db.rollback()
         print("Error", e)
@@ -389,13 +425,20 @@ def handle_chat_message(payload: ChatMessage):
             db.close()
     elif intent == "log":
         try:
+            now = datetime.now()
             result = parse_agent.invoke({
                 "raw_message": message,
-                "slack_message_id": f"app_{datetime.now().timestamp()}",
+                "slack_message_id": f"app_{now.timestamp()}",
                 "channel_id": "mobile_app",
-                "log_date": datetime.now().date().isoformat(),
+                "log_date": now.date().isoformat(),
             })
             reply = result.get("reply_message", "Logged successfully.")
+            db = SessionLocal()
+            try:
+                rebuild_monthly_summary(db, now.month, now.year)
+                DASHBOARD_SUMMARY_CACHE.clear()
+            finally:
+                db.close()
             print(f"[Chat API Log Agent Result]: {result}")
             print(f"[Chat API Final LLM Reply]: {reply}")
             print(f"===========================================================\n")
@@ -408,13 +451,20 @@ def handle_chat_message(payload: ChatMessage):
             return {"type": "error", "reply": "Sorry, I couldn't log that expense. Try rephrasing it."}
     elif intent == "followup":
         try:
+            now = datetime.now()
             result = parse_agent.invoke({
                 "raw_message": message,
-                "slack_message_id": f"app_{datetime.now().timestamp()}",
+                "slack_message_id": f"app_{now.timestamp()}",
                 "channel_id": "mobile_app",
-                "log_date": datetime.now().date().isoformat(),
+                "log_date": now.date().isoformat(),
             })
             reply = result.get("reply_message", "Logged successfully.")
+            db = SessionLocal()
+            try:
+                rebuild_monthly_summary(db, now.month, now.year)
+                DASHBOARD_SUMMARY_CACHE.clear()
+            finally:
+                db.close()
             print(f"[Chat API Followup Agent Result]: {result}")
             print(f"[Chat API Final LLM Reply]: {reply}")
             print(f"===========================================================\n")
