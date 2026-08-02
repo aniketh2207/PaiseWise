@@ -26,25 +26,30 @@ def _get_gmail_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # IMPORTANT FOR DEPLOYMENT: InstalledAppFlow.run_local_server opens a local browser
-            # for user authentication. This interactive flow WILL FAIL on headless cloud hosts
-            # (such as Railway or Render).
-            #
-            # HOW TO DEPLOY:
-            # 1. Run the app or email script LOCALLY once to trigger the interactive consent flow
-            #    and generate the `token.json` file on your local machine.
-            # 2. Convert the contents of the generated `token.json` into a base64 string.
-            # 3. Set that base64 string as the GMAIL_TOKEN_JSON environment variable on the cloud host.
-            # 4. Our `token_loader.py` helper will automatically decode and write the token file to
-            #    disk on cloud startup, allowing this check to succeed without invoking `run_local_server`.
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"Failed to refresh Gmail OAuth token ({e}). Invalidating stale token.")
+                if os.path.exists(token_path):
+                    try:
+                        os.remove(token_path)
+                    except Exception:
+                        pass
+                creds = None
+
+        if not creds:
+            if not os.path.exists(settings.GMAIL_CREDENTIALS_PATH):
+                raise RuntimeError(
+                    f"Gmail credentials file not found at '{settings.GMAIL_CREDENTIALS_PATH}'. "
+                    "Your OAuth token has expired/revoked. Please re-authenticate locally to generate a new token.json "
+                    "or set GMAIL_TOKEN_JSON in environment variables."
+                )
             flow = InstalledAppFlow.from_client_secrets_file(
                 settings.GMAIL_CREDENTIALS_PATH, SCOPES
             )
             creds = flow.run_local_server(port=0)
-            
-        # 2. Save back to JSON (note: 'w' mode instead of 'wb')
+
+        # Save back to JSON
         with open(token_path, "w") as f:
             f.write(creds.to_json())
 
