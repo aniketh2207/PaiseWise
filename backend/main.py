@@ -212,7 +212,7 @@ DASHBOARD_SUMMARY_CACHE = {}
 
 
 @app.get("/api/dashboard/summary")
-def get_dashboard_summary(month: int = None, year: int = None):
+def get_dashboard_summary(month: Optional[int] = None, year: Optional[int] = None):
     db = SessionLocal()
     try:
         if not month or not year:
@@ -286,6 +286,8 @@ def get_dashboard_summary(month: int = None, year: int = None):
 
         return {
             "exists": True,
+            "month": month,
+            "year": year,
             "total_debits": db_summary.total_debits or 0.0,
             "total_credits": db_summary.total_credits or 0.0,
             "by_category": by_category_data,
@@ -299,7 +301,7 @@ def get_dashboard_summary(month: int = None, year: int = None):
         db.close()
 
 @app.get("/api/reports/generate")
-def api_generate_report(month: int = None, year: int = None, refresh: bool = False):
+def api_generate_report(month: Optional[int] = None, year: Optional[int] = None, refresh: bool = False):
     db = SessionLocal()
     try:
         if not month or not year:
