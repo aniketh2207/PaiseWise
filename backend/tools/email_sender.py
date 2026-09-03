@@ -20,8 +20,17 @@ def _get_gmail_service():
     creds = None
     token_path = settings.GMAIL_TOKEN_PATH
 
-    # 1. Load from JSON using the built-in method
-    if os.path.exists(token_path):
+    # 1. Load from GMAIL_TOKEN_JSON env var if available
+    if getattr(settings, "GMAIL_TOKEN_JSON", None):
+        import json
+        try:
+            token_info = json.loads(settings.GMAIL_TOKEN_JSON)
+            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+        except Exception as e:
+            print(f"Failed to parse GMAIL_TOKEN_JSON env var: {e}")
+
+    # 2. Fall back to JSON file on disk
+    if not creds and os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
     if not creds or not creds.valid:

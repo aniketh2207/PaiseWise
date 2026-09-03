@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GMAIL_TOKEN_PATH: str = str(BASE_DIR / "token.json")
     GMAIL_CREDENTIALS_PATH: str = str(BASE_DIR / "credentials.json")
+    GMAIL_TOKEN_JSON: str = ""
     class Config:
         env_file = str(BASE_DIR / ".env")
         extra = "ignore"
