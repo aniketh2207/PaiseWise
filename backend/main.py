@@ -299,8 +299,8 @@ def get_dashboard_summary(month: int = None, year: int = None):
         db.close()
 
 @app.get("/api/reports/generate")
-def api_generate_report(month: int, year: int):
-    result = generate_report(month, year)
+def api_generate_report(month: int, year: int, refresh: bool = False):
+    result = generate_report(month, year, force_refresh=refresh)
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return {"status": "success", "insights": result["insights"]}

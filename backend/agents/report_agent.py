@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 REPORTS_DIR = "./saved_reports"
 os.makedirs(REPORTS_DIR, exist_ok=True) # Ensure the folder exists
 
-def generate_report(month: int, year: int, db: Session = None) -> dict:
+def generate_report(month: int, year: int, db: Session = None, force_refresh: bool = False) -> dict:
     """
     Builds the Excel report, stores the LLM insights on MonthlySummary,
     and caches the file on disk.
@@ -36,6 +36,16 @@ def generate_report(month: int, year: int, db: Session = None) -> dict:
         if not summary:
             return {"error": "No data found for this month. Upload and reconcile first."}
             
+        if force_refresh:
+            summary.llm_insights = None
+            if summary.report_path and os.path.exists(summary.report_path):
+                try:
+                    os.remove(summary.report_path)
+                except Exception:
+                    pass
+            summary.report_path = None
+            db.commit()
+
         # 1. Generate LLM insights if not already present
         if not summary.llm_insights:
             import json

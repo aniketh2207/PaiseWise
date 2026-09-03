@@ -1,4 +1,5 @@
 import json
+import os
 try:
     from backend.database.db import SessionLocal
     from backend.database.models import SlackLog, BankTransaction, UpiPattern, MonthlySummary
@@ -165,11 +166,6 @@ def rebuild_monthly_summary(db, month, year):
     debit_count   = len([t for t in txns if t.type == "debit"])
     match_rate    = round(matched_count / debit_count, 2) if debit_count else 0.0
 
-    existing = db.query(MonthlySummary).filter(
-        MonthlySummary.month == month,
-        MonthlySummary.year == year
-    ).first()
-
     if existing:
         existing.total_debits    = round(total_debits, 2)
         existing.total_credits   = round(total_credits, 2)
@@ -177,6 +173,14 @@ def rebuild_monthly_summary(db, month, year):
         existing.top_merchant    = top_merchant
         existing.bank_txn_count  = len(txns)
         existing.match_rate      = match_rate
+        # Invalidate report LLM insights and cached Excel file so Reports tab regenerates with fresh data
+        existing.llm_insights    = None
+        if existing.report_path and os.path.exists(existing.report_path):
+            try:
+                os.remove(existing.report_path)
+            except Exception:
+                pass
+        existing.report_path    = None
     else:
         db.add(MonthlySummary(
             month=month, year=year,

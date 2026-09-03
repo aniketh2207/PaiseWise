@@ -17,9 +17,10 @@ export default function Reports() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
-  // State for Month and Year
-  const [month, setMonth] = useState<number>(6); // Defaulting to June (6) to match available seed data
-  const [year, setYear] = useState<number>(2026); // Defaulting to 2026 to match available seed data
+  // State for Month and Year (default to current month & year)
+  const currentDate = new Date();
+  const [month, setMonth] = useState<number>(currentDate.getMonth() + 1);
+  const [year, setYear] = useState<number>(currentDate.getFullYear());
   
   // State for report data
   const [insights, setInsights] = useState<string>('');
@@ -38,7 +39,7 @@ export default function Reports() {
     setRefreshing(true);
     try {
       await Promise.all([
-        fetchReport(month, year),
+        fetchReport(month, year, true),
         fetchRecipients()
       ]);
     } catch (err) {
@@ -82,14 +83,14 @@ export default function Reports() {
   };
 
   // API Call: Fetch Report (Insights and check if generated)
-  const fetchReport = async (targetMonth: number, targetYear: number) => {
+  const fetchReport = async (targetMonth: number, targetYear: number, forceRefresh: boolean = false) => {
     try {
       setLoading(true);
       setErrorText('');
       setInsights('');
       
       const response = await axios.get(API_ROUTES.generateReport, {
-        params: { month: targetMonth, year: targetYear }
+        params: { month: targetMonth, year: targetYear, refresh: forceRefresh }
       });
       
       if (response.data.status === 'success') {
