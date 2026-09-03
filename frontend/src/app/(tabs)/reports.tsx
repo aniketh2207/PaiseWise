@@ -17,10 +17,9 @@ export default function Reports() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
-  // State for Month and Year (default to current month & year)
-  const currentDate = new Date();
-  const [month, setMonth] = useState<number>(currentDate.getMonth() + 1);
-  const [year, setYear] = useState<number>(currentDate.getFullYear());
+  // State for Month and Year (null defaults to latest month with data)
+  const [month, setMonth] = useState<number | null>(null);
+  const [year, setYear] = useState<number | null>(null);
   
   // State for report data
   const [insights, setInsights] = useState<string>('');
@@ -56,20 +55,24 @@ export default function Reports() {
   ];
 
   const handlePrevMonth = () => {
-    if (month === 1) {
+    const curM = month || (new Date().getMonth() + 1);
+    const curY = year || new Date().getFullYear();
+    if (curM === 1) {
       setMonth(12);
-      setYear(prev => prev - 1);
+      setYear(curY - 1);
     } else {
-      setMonth(prev => prev - 1);
+      setMonth(curM - 1);
     }
   };
 
   const handleNextMonth = () => {
-    if (month === 12) {
+    const curM = month || (new Date().getMonth() + 1);
+    const curY = year || new Date().getFullYear();
+    if (curM === 12) {
       setMonth(1);
-      setYear(prev => prev + 1);
+      setYear(curY + 1);
     } else {
-      setMonth(prev => prev + 1);
+      setMonth(curM + 1);
     }
   };
 
@@ -83,18 +86,24 @@ export default function Reports() {
   };
 
   // API Call: Fetch Report (Insights and check if generated)
-  const fetchReport = async (targetMonth: number, targetYear: number, forceRefresh: boolean = false) => {
+  const fetchReport = async (targetMonth?: number | null, targetYear?: number | null, forceRefresh: boolean = false) => {
     try {
       setLoading(true);
       setErrorText('');
       setInsights('');
       
-      const response = await axios.get(API_ROUTES.generateReport, {
-        params: { month: targetMonth, year: targetYear, refresh: forceRefresh }
-      });
+      const params: any = { refresh: forceRefresh };
+      if (targetMonth) params.month = targetMonth;
+      if (targetYear) params.year = targetYear;
+
+      const response = await axios.get(API_ROUTES.generateReport, { params });
       
       if (response.data.status === 'success') {
         setInsights(response.data.insights || 'No insights compiled.');
+        if (response.data.month && response.data.year) {
+          setMonth(response.data.month);
+          setYear(response.data.year);
+        }
       } else {
         setErrorText(response.data.error || 'Failed to retrieve report.');
       }
@@ -255,7 +264,7 @@ export default function Reports() {
           <View style={styles.periodTextContainer}>
             <Ionicons name="calendar" size={16} color="#059669" style={{ marginRight: 8 }} />
             <Text style={styles.periodLabel}>
-              {monthsList[month - 1]} {year}
+              {month ? `${monthsList[month - 1]} ${year}` : 'Loading...'}
             </Text>
           </View>
           <Pressable style={styles.arrowButton} onPress={handleNextMonth}>

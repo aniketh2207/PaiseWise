@@ -27,9 +27,9 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
 
   // State for Month and Year (default to current month & year)
-  const currentDate = new Date();
-  const [month, setMonth] = useState<number>(currentDate.getMonth() + 1);
-  const [year, setYear] = useState<number>(currentDate.getFullYear());
+  // State for Month and Year (null defaults to latest month with data)
+  const [month, setMonth] = useState<number | null>(null);
+  const [year, setYear] = useState<number | null>(null);
 
   const monthsList = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -37,20 +37,24 @@ export default function Dashboard() {
   ];
 
   const handlePrevMonth = () => {
-    if (month === 1) {
+    const curM = month || (new Date().getMonth() + 1);
+    const curY = year || new Date().getFullYear();
+    if (curM === 1) {
       setMonth(12);
-      setYear(prev => prev - 1);
+      setYear(curY - 1);
     } else {
-      setMonth(prev => prev - 1);
+      setMonth(curM - 1);
     }
   };
 
   const handleNextMonth = () => {
-    if (month === 12) {
+    const curM = month || (new Date().getMonth() + 1);
+    const curY = year || new Date().getFullYear();
+    if (curM === 12) {
       setMonth(1);
-      setYear(prev => prev + 1);
+      setYear(curY + 1);
     } else {
-      setMonth(prev => prev + 1);
+      setMonth(curM + 1);
     }
   };
 
@@ -65,8 +69,8 @@ export default function Dashboard() {
     }
   }, [month, year]);
 
-  const get_summary = async (targetMonth: number, targetYear: number, force: boolean = false) => {
-    const cacheKey = `${targetYear}-${targetMonth}`;
+  const get_summary = async (targetMonth?: number | null, targetYear?: number | null, force: boolean = false) => {
+    const cacheKey = `${targetYear || 'default'}-${targetMonth || 'default'}`;
     if (!force && !dashboardCache.needsRefresh && dashboardCache.cache[cacheKey]) {
       setSummary(dashboardCache.cache[cacheKey]);
       setLoading(false);
@@ -78,10 +82,16 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       setSummary(null);
-      const response = await axios.get(API_ROUTES.dashboardSummary, {
-        params: { month: targetMonth, year: targetYear }
-      });
+      const params: any = {};
+      if (targetMonth) params.month = targetMonth;
+      if (targetYear) params.year = targetYear;
+
+      const response = await axios.get(API_ROUTES.dashboardSummary, { params });
       setSummary(response.data);
+      if (response.data.month && response.data.year) {
+        setMonth(response.data.month);
+        setYear(response.data.year);
+      }
       dashboardCache.cache[cacheKey] = response.data;
       dashboardCache.needsRefresh = false;
     } catch (err) {
@@ -160,7 +170,7 @@ export default function Dashboard() {
           <View style={styles.periodTextContainer}>
             <Ionicons name="calendar" size={16} color="#059669" style={{ marginRight: 8 }} />
             <Text style={styles.periodLabel}>
-              {monthsList[month - 1]} {year}
+              {month ? `${monthsList[month - 1]} ${year}` : 'Loading...'}
             </Text>
           </View>
           <Pressable style={styles.arrowButton} onPress={handleNextMonth}>

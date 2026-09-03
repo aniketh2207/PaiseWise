@@ -299,11 +299,28 @@ def get_dashboard_summary(month: int = None, year: int = None):
         db.close()
 
 @app.get("/api/reports/generate")
-def api_generate_report(month: int, year: int, refresh: bool = False):
-    result = generate_report(month, year, force_refresh=refresh)
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
-    return {"status": "success", "insights": result["insights"]}
+def api_generate_report(month: int = None, year: int = None, refresh: bool = False):
+    db = SessionLocal()
+    try:
+        if not month or not year:
+            latest = db.query(MonthlySummary).order_by(
+                MonthlySummary.year.desc(),
+                MonthlySummary.month.desc()
+            ).first()
+            if latest:
+                month = latest.month
+                year = latest.year
+            else:
+                from datetime import datetime
+                now = datetime.now()
+                month = now.month
+                year = now.year
+        result = generate_report(month, year, db=db, force_refresh=refresh)
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result["error"])
+        return {"status": "success", "insights": result["insights"], "month": month, "year": year}
+    finally:
+        db.close()
 
 
 @app.get("/api/reports/download")
