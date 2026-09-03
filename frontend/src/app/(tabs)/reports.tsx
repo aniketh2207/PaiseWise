@@ -57,23 +57,21 @@ export default function Reports() {
   const handlePrevMonth = () => {
     const curM = month || (new Date().getMonth() + 1);
     const curY = year || new Date().getFullYear();
-    if (curM === 1) {
-      setMonth(12);
-      setYear(curY - 1);
-    } else {
-      setMonth(curM - 1);
-    }
+    const newM = curM === 1 ? 12 : curM - 1;
+    const newY = curM === 1 ? curY - 1 : curY;
+    setMonth(newM);
+    setYear(newY);
+    fetchReport(newM, newY);
   };
 
   const handleNextMonth = () => {
     const curM = month || (new Date().getMonth() + 1);
     const curY = year || new Date().getFullYear();
-    if (curM === 12) {
-      setMonth(1);
-      setYear(curY + 1);
-    } else {
-      setMonth(curM + 1);
-    }
+    const newM = curM === 12 ? 1 : curM + 1;
+    const newY = curM === 12 ? curY + 1 : curY;
+    setMonth(newM);
+    setYear(newY);
+    fetchReport(newM, newY);
   };
 
   // Helper to extract initials for avatar circles
@@ -93,8 +91,8 @@ export default function Reports() {
       setInsights('');
       
       const params: any = { refresh: forceRefresh };
-      if (targetMonth) params.month = targetMonth;
-      if (targetYear) params.year = targetYear;
+      if (targetMonth !== null && targetMonth !== undefined) params.month = targetMonth;
+      if (targetYear !== null && targetYear !== undefined) params.year = targetYear;
 
       const response = await axios.get(API_ROUTES.generateReport, { params });
       
@@ -182,6 +180,7 @@ export default function Reports() {
 
   // API Call: Download Excel Spreadsheet Report
   const handleDownload = () => {
+    if (!month || !year) return;
     const downloadUrl = `${API_ROUTES.downloadReport}?month=${month}&year=${year}`;
     Linking.openURL(downloadUrl).catch(() => {
       Alert.alert('Error', 'Failed to open report download URL.');
@@ -190,6 +189,7 @@ export default function Reports() {
 
   // API Call: Dispatch Email
   const handleSendEmail = async () => {
+    if (!month || !year) return;
     if (recipients.length === 0) {
       Alert.alert('Recipients Required', 'You must configure at least one active recipient before dispatching reports.');
       return;
@@ -219,10 +219,10 @@ export default function Reports() {
     }
   };
 
-  // Load report data when month/year changes
+  // Load report data on initial mount
   useEffect(() => {
     fetchReport(month, year);
-  }, [month, year]);
+  }, []);
 
   // Load active recipients when tab focuses
   useFocusEffect(
@@ -286,7 +286,7 @@ export default function Reports() {
             </View>
             <Text style={styles.emptyTitle}>No Reconciled Data Found</Text>
             <Text style={styles.emptyText}>
-              There are no statements loaded or reconciled for {monthsList[month - 1]} {year}.
+              There are no statements loaded or reconciled for {month ? monthsList[month - 1] : ''} {year || ''}.
             </Text>
             <Pressable 
               style={styles.actionButton}
