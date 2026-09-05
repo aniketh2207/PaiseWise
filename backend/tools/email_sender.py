@@ -11,8 +11,10 @@ import pickle
 
 try:
     from backend.config import settings
+    from backend.tools.token_loader import parse_gmail_token_env
 except ModuleNotFoundError:
     from config import settings
+    from tools.token_loader import parse_gmail_token_env
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
@@ -21,25 +23,26 @@ def _get_gmail_service():
     token_path = settings.GMAIL_TOKEN_PATH
 
     # 1. Load from GMAIL_TOKEN_JSON env var if available
-    if getattr(settings, "GMAIL_TOKEN_JSON", None):
-        import json
-        import base64
-        token_str = settings.GMAIL_TOKEN_JSON.strip()
+    gmail_token_val = getattr(settings, "GMAIL_TOKEN_JSON", None) or os.environ.get("GMAIL_TOKEN_JSON")
+    if gmail_token_val:
         try:
-            # If Base64 encoded string (starts with ey...), decode it to raw JSON
-            if not token_str.startswith("{"):
-                try:
-                    token_str = base64.b64decode(token_str).decode("utf-8")
-                except Exception:
-                    pass
-            token_info = json.loads(token_str)
-            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+            token_info = parse_gmail_token_env(gmail_token_val)
+            if token_info:
+                creds = Credentials.from_authorized_user_info(token_info, SCOPES)
         except Exception as e:
             print(f"Failed to parse GMAIL_TOKEN_JSON env var: {e}")
 
     # 2. Fall back to JSON file on disk
     if not creds and os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        except Exception as e:
+            print(f"Failed to load credentials from token file '{token_path}' ({e}). Invalidating corrupted token file.")
+            try:
+                os.remove(token_path)
+            except Exception:
+                pass
+            creds = None
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
